@@ -1,0 +1,9 @@
+apiVersion: mox.app.br/v1alpha1
+kind: trashedresources
+metadata:
+  labels:
+    app.kubernetes.io/name: trashed-resources
+    app.kubernetes.io/managed-by: kustomize
+  name: trashedresources-sample
+spec:
+  # TODO(user): Add fields here

@@ -1,0 +1,4 @@
+## Append samples of your project ##
+resources:
+- mox_v1alpha1_trashedresource.yaml
+# +kubebuilder:scaffold:manifestskustomizesamples
