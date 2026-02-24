@@ -46,6 +46,7 @@ spec:
                 type: string
             required:
             - data
+            - keepUntil
             type: object
           status:
             description: TrashedResourceStatus defines the observed state of TrashedResource.

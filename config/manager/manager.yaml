@@ -103,5 +103,5 @@ metadata:
   name: trashedresources-config
   namespace: system
 data:
-  toWatch: |
-    Deployment;Secret;ConfigMap
+  kindsTobserve: |
+    Deployment; Secret; ConfigMap
