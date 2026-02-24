@@ -42,6 +42,8 @@ spec:
               data:
                 description: Data is the YAML content of the deleted resource
                 type: string
+              keepUntil:
+                type: string
             required:
             - data
             type: object

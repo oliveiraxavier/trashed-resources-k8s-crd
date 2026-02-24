@@ -18,6 +18,7 @@ package controller
 
 import (
 	"context"
+	"strings"
 
 	moxv1alpha1 "trashed-resources/api/v1alpha1"
 
@@ -25,17 +26,17 @@ import (
 	"fmt"
 
 	"gopkg.in/yaml.v2"
-	v1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/event"
-	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 )
+
+var logger = log.Log
 
 // TrashedResourceReconciler reconciles a trashedresources object
 type TrashedResourceReconciler struct {
@@ -44,7 +45,7 @@ type TrashedResourceReconciler struct {
 }
 
 // logPodManifestDelete loga o manifesto YAML do Pod deletado
-func getUpdatedOrDeletedManifest(c client.Client, kubernetesObj client.Object) {
+func createUpdatedOrDeletedManifest(c client.Client, kubernetesObj client.Object) {
 	ctx := context.Background()
 	podJSON, err := json.Marshal(kubernetesObj)
 	if err != nil {
@@ -68,7 +69,7 @@ func getUpdatedOrDeletedManifest(c client.Client, kubernetesObj client.Object) {
 	// Cria o TrashedResource
 	trashed := &moxv1alpha1.TrashedResource{
 		ObjectMeta: metav1.ObjectMeta{
-			GenerateName: fmt.Sprintf("trashed-%s-%s-", kubernetesObj.GetObjectKind().GroupVersionKind().Kind, kubernetesObj.GetName()),
+			GenerateName: fmt.Sprintf("trashed-%s-%s-", strings.ToLower(kubernetesObj.GetObjectKind().GroupVersionKind().Kind), kubernetesObj.GetName()),
 			Namespace:    kubernetesObj.GetNamespace(),
 		},
 		Spec: moxv1alpha1.TrashedResourceSpec{
@@ -96,45 +97,56 @@ func getUpdatedOrDeletedManifest(c client.Client, kubernetesObj client.Object) {
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.20.2/pkg/reconcile
 func (r *TrashedResourceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	logger := log.FromContext(ctx)
-
-	// Tenta buscar o Pod pelo nome e namespace do request
-	var pod v1.Pod
-	err := r.Get(ctx, req.NamespacedName, &pod)
-	if err != nil {
-		if errors.IsNotFound(err) {
-			logger.Info("Pod deletado", "namespace", req.Namespace, "name", req.Name)
-
-			// Aqui você pode adicionar lógica extra se necessário
-			return ctrl.Result{}, nil
-		}
-		// Outro erro ao buscar o Pod
-		logger.Error(err, "Erro ao buscar Pod")
-		return ctrl.Result{}, err
-	}
-
-	// Pod existe, lógica normal...
 
 	return ctrl.Result{}, nil
 }
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *TrashedResourceReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	return ctrl.NewControllerManagedBy(mgr).
+	// É necessário definir o GVK para que o controller saiba qual recurso monitorar via Unstructured
+	setup := ctrl.NewControllerManagedBy(mgr).
 		For(&moxv1alpha1.TrashedResource{}).
-		// TODO - Deixar isso dinamico com algum parametro dentro do Spec do TrashedResource, para o usuario escolher quais recursos quer monitorar
-		Watches(&v1.Pod{}, &handler.EnqueueRequestForObject{}).
-		Watches(&v1.Secret{}, &handler.EnqueueRequestForObject{}).
-		Watches(&v1.ConfigMap{}, &handler.EnqueueRequestForObject{}).
 		WithEventFilter(predicate.Funcs{
 			UpdateFunc: func(e event.UpdateEvent) bool {
 				return true
 			},
 			DeleteFunc: func(e event.DeleteEvent) bool {
-				getUpdatedOrDeletedManifest(r.Client, e.Object)
 				return true
 			},
 		}).
-		Named("trashedresources").
-		Complete(r)
+		Named("trashedresources")
+
+	items, err := getToWatch(r.Client, context.Background())
+	if err != nil {
+		return err
+	}
+	for _, item := range items {
+		logger.Info("Adicionando watch para tipo:", "kind", item)
+		// u := &unstructured.Unstructured{}
+		// u.SetGroupVersionKind(item)
+		// setup.Watches(u, &handler.EnqueueRequestForObject{})
+		//Watches(&item{}, &handler.EnqueueRequestForObject{}).
+		// Watches(&appsv1.Deployment{}, &handler.EnqueueRequestForObject{}).
+		// Watches(&v1.Secret{}, &handler.EnqueueRequestForObject{}).
+		// Watches(&v1.ConfigMap{}, &handler.EnqueueRequestForObject{}).
+	}
+	return setup.Complete(r)
+}
+
+func getToWatch(c client.Client, ctx context.Context) ([]string, error) {
+	// Lê o ConfigMap para obter os tipos permitidos
+	cm := &corev1.ConfigMap{}
+	if err := c.Get(ctx, client.ObjectKey{Namespace: "system", Name: "trashedresources-config"}, cm); err != nil {
+		logger.Error(err, "Erro ao ler ConfigMap")
+		return nil, err
+	}
+
+	var result []string
+	if val, ok := cm.Data["toWatch"]; ok {
+		for _, entry := range strings.Split(val, ";") {
+			kind := strings.TrimSpace(entry)
+			result = append(result, kind)
+		}
+	}
+	return result, nil
 }

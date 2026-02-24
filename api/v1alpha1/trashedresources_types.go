@@ -30,7 +30,8 @@ type TrashedResourceSpec struct {
 
 	// Data is the YAML content of the deleted resource
 	// +kubebuilder:validation:Required
-	Data string `json:"data"`
+	Data      string `json:"data"`
+	KeepUntil string `json:"keepUntil,omitempty"`
 }
 
 // TrashedResourceStatus defines the observed state of TrashedResource.

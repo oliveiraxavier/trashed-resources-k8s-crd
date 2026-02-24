@@ -3,6 +3,7 @@
 # It should be run by config/default
 resources:
 - bases/mox.app.br_trashedresources.yaml
+- bases/trashed-resources-configmap.yaml
 # +kubebuilder:scaffold:crdkustomizeresource
 
 patches:
