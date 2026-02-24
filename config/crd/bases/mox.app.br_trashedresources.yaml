@@ -42,8 +42,11 @@ spec:
               data:
                 description: Data is the YAML content of the deleted resource
                 type: string
+              keepUntil:
+                type: string
             required:
             - data
+            - keepUntil
             type: object
           status:
             description: TrashedResourceStatus defines the observed state of TrashedResource.
