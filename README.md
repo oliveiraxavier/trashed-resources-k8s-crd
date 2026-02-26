@@ -5,6 +5,7 @@ This project introduces a custom CRD designed to enhance cluster safety by track
 
 ## Features
 1 - Tracks deletions and updates across the cluster.
+
 2 - Provides a sort of "Recycle Bin" for Kubernetes resources.
 
 ## Getting Started
