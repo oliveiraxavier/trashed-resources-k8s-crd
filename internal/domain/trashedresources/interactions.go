@@ -1,4 +1,4 @@
-package domain
+package trashedresources
 
 import (
 	"context"
@@ -109,11 +109,34 @@ func getTimetoKeepFromConfigMap(configMapData v1.ConfigMap) string {
 	}
 	return dateNow.AddMinutes(minutesToKeep).AddHours(hoursToKeep).ToString()
 }
-func CreateOrUpdatedManifest(c client.Client, kubernetesObj client.Object, configMapData v1.ConfigMap, action_type string) bool {
+func ListAndDeleteIfExpiredTrashedResources(c client.Client, namespace string) error {
 	ctx := context.Background()
 	trInteractor := NewTrashedResourceInteractor(c)
-	if action_type == "create" {
-		objectYAML := makeBodyManifest(kubernetesObj)
+	trashedList, err := trInteractor.List(ctx, namespace)
+	if err != nil {
+		logger.Error(err, "Error listing TrashedResources")
+		return err
+	}
+	for _, trashed := range trashedList.Items {
+		timeRemaining := utils.GetTimeRemaining(trashed.Spec.KeepUntil)
+
+		if timeRemaining <= 0 {
+			logger.Info("TrashedResource expired", "name", trashed.Name, "namespace", trashed.Namespace)
+			if err := trInteractor.Delete(ctx, trashed.Name, trashed.Namespace); err != nil {
+				logger.Error(err, "Error deleting TrashedResource")
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func CreateOrUpdatedManifest(c client.Client, kubernetesObject client.Object, configMapData v1.ConfigMap, actionType string) bool {
+	ctx := context.Background()
+	// trInteractor := NewTrashedResourceInteractor(c)
+	trInteractor := trashedResourceInteractor{client: c}
+	if actionType == "deleted" {
+		objectYAML := makeBodyManifest(kubernetesObject)
 		if objectYAML == nil {
 			return false
 		}
@@ -124,8 +147,8 @@ func CreateOrUpdatedManifest(c client.Client, kubernetesObj client.Object, confi
 				APIVersion: "mox.app.br/v1alpha1",
 			},
 			ObjectMeta: metav1.ObjectMeta{
-				GenerateName: fmt.Sprintf("trashed-%s-%s-%s-", action_type, strings.ToLower(kubernetesObj.GetObjectKind().GroupVersionKind().Kind), kubernetesObj.GetName()),
-				Namespace:    kubernetesObj.GetNamespace(),
+				GenerateName: fmt.Sprintf("trashed-%s-%s-%s-", actionType, strings.ToLower(kubernetesObject.GetObjectKind().GroupVersionKind().Kind), kubernetesObject.GetName()),
+				Namespace:    kubernetesObject.GetNamespace(),
 			},
 			Spec: moxv1alpha1.TrashedResourceSpec{
 				Data:      string(objectYAML),
@@ -134,10 +157,10 @@ func CreateOrUpdatedManifest(c client.Client, kubernetesObj client.Object, confi
 			},
 		}
 		if err := trInteractor.Create(ctx, trashed); err != nil {
-			logger.Error(err, "Error on  "+action_type+" TrashedResource")
+			logger.Error(err, "Error on create TrashedResource")
 			return false
 		}
-		logger.Info("Success on "+action_type+" TrashedResource", "name", trashed.Name, "namespace", trashed.Namespace)
+		logger.Info("Success on create TrashedResource", "name", trashed.Name, "namespace", trashed.Namespace)
 	}
 	return true
 }
@@ -148,9 +171,9 @@ func NewTrashedResourceInteractor(c client.Client) TrashedResourceInteractor {
 }
 
 // Get recupera um TrashedResource pelo nome e namespace.
-func (i *trashedResourceInteractor) Get(ctx context.Context, name, namespace string) (*moxv1alpha1.TrashedResource, error) {
+func (interactor *trashedResourceInteractor) Get(ctx context.Context, name, namespace string) (*moxv1alpha1.TrashedResource, error) {
 	resource := &moxv1alpha1.TrashedResource{}
-	err := i.client.Get(ctx, types.NamespacedName{Name: name, Namespace: namespace}, resource)
+	err := interactor.client.Get(ctx, types.NamespacedName{Name: name, Namespace: namespace}, resource)
 	if err != nil {
 		return nil, err
 	}
@@ -159,36 +182,37 @@ func (i *trashedResourceInteractor) Get(ctx context.Context, name, namespace str
 
 // List recupera todos os TrashedResources em um determinado namespace.
 // Se o namespace for uma string vazia, lista os recursos de todos os namespaces.
-func (i *trashedResourceInteractor) List(ctx context.Context, namespace string) (*moxv1alpha1.TrashedResourceList, error) {
+func (interactor *trashedResourceInteractor) List(ctx context.Context, namespace string) (*moxv1alpha1.TrashedResourceList, error) {
 	list := &moxv1alpha1.TrashedResourceList{}
 	opts := []client.ListOption{}
-	if namespace != "" {
+
+	if namespace != "" && namespace != "all" {
 		opts = append(opts, client.InNamespace(namespace))
 	}
 
-	if err := i.client.List(ctx, list, opts...); err != nil {
+	if err := interactor.client.List(ctx, list, opts...); err != nil {
 		return nil, err
 	}
 	return list, nil
 }
 
 // Create cria um novo TrashedResource.
-func (i *trashedResourceInteractor) Create(ctx context.Context, resource *moxv1alpha1.TrashedResource) error {
-	return i.client.Create(ctx, resource)
+func (interactor *trashedResourceInteractor) Create(ctx context.Context, resource *moxv1alpha1.TrashedResource) error {
+	return interactor.client.Create(ctx, resource)
 }
 
 // Update atualiza um TrashedResource existente.
-func (i *trashedResourceInteractor) Update(ctx context.Context, resource *moxv1alpha1.TrashedResource) error {
-	return i.client.Update(ctx, resource)
+func (interactor *trashedResourceInteractor) Update(ctx context.Context, resource *moxv1alpha1.TrashedResource) error {
+	return interactor.client.Update(ctx, resource)
 }
 
 // Delete deleta um TrashedResource pelo nome e namespace.
-func (i *trashedResourceInteractor) Delete(ctx context.Context, name, namespace string) error {
+func (interactor *trashedResourceInteractor) Delete(ctx context.Context, name, namespace string) error {
 	resource := &moxv1alpha1.TrashedResource{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			Namespace: namespace,
 		},
 	}
-	return i.client.Delete(ctx, resource)
+	return interactor.client.Delete(ctx, resource)
 }

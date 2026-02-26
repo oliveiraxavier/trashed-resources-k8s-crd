@@ -19,6 +19,7 @@ package controller
 import (
 	"context"
 	"strings"
+	"time"
 	moxv1alpha1 "trashed-resources/api/v1alpha1"
 	tr_interactions "trashed-resources/internal/domain/trashedresources"
 	utils "trashed-resources/internal/utils"
@@ -56,7 +57,11 @@ type TrashedResourceReconciler struct {
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.20.2/pkg/reconcile
 func (r *TrashedResourceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	return ctrl.Result{}, nil
+	if err := tr_interactions.ListAndDeleteIfExpiredTrashedResources(r.Client, "all"); err != nil {
+		return ctrl.Result{Requeue: true, RequeueAfter: time.Second * 10}, nil
+	}
+
+	return ctrl.Result{Requeue: true, RequeueAfter: time.Minute}, nil
 }
 
 // SetupWithManager sets up the controller with the Manager.
@@ -84,13 +89,14 @@ func (r *TrashedResourceReconciler) SetupWithManager(mgr ctrl.Manager) error {
 				if e.Object.GetObjectKind().GroupVersionKind().Kind == "" {
 					return false
 				}
-				tr_interactions.CreateOrUpdatedManifest(mgr.GetClient(), e.Object, configMapData, "create")
+				tr_interactions.CreateOrUpdatedManifest(mgr.GetClient(), e.Object, configMapData, "deleted")
+
 				return true
 			},
 		}).
 		Named("trashedresources")
 
-	getKindsToWatch(mgr, builder, configMapData) //append kinds to watch based on configmap
+	getKindsToWatch(mgr, builder, configMapData) // append kinds to watch based on configmap
 
 	builder = builder.Watches(&moxv1alpha1.TrashedResource{}, &handler.EnqueueRequestForObject{})
 
