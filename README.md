@@ -1,7 +1,11 @@
 # Trashed resources
 
 ## Description
-This CRD tracks objects updated or removed from your Kubernetes Cluster, acting as a recycle bin for those deleted or modified items. [WIP]
+This project introduces a custom CRD designed to enhance cluster safety by tracking objects that are updated or removed from your Kubernetes Cluster. It acts as a recycle bin, ensuring that deleted or modified items are temporarily stored and can be audited or recovered. [WIP]
+
+## Features
+1 - Tracks deletions and updates across the cluster.
+2 - Provides a sort of "Recycle Bin" for Kubernetes resources.
 
 ## Getting Started
 
