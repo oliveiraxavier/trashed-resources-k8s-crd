@@ -4,11 +4,13 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strconv"
 	"strings"
 	moxv1alpha1 "trashed-resources/api/v1alpha1"
 	utils "trashed-resources/internal/utils"
 
 	"gopkg.in/yaml.v2"
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -53,7 +55,7 @@ func makeBodyManifest(kubernetesObj client.Object) []byte {
 			apiVersion = gvk.Version
 		}
 	}
-	knownGVKs := utils.GetKindsToWatch()
+	knownGVKs := utils.GetKnownKindsToWatch()
 	if apiVersion == "" && kind != "" {
 		if rgvk, ok := knownGVKs[strings.ToLower(kind)]; ok {
 			if rgvk.Group != "" {
@@ -84,7 +86,30 @@ func makeBodyManifest(kubernetesObj client.Object) []byte {
 	return objectYAML
 }
 
-func CreateOrUpdatedManifest(c client.Client, kubernetesObj client.Object, action_type string) bool {
+func getTimetoKeepFromConfigMap(configMapData v1.ConfigMap) string {
+	minutesToKeep := int64(60) // default value
+	hoursToKeep := int64(0)    // default value
+	dateNow := utils.Now()
+	// .AddHours(24).ToString()
+	if val, ok := configMapData.Data["minutesToKeep"]; ok {
+		if mtk, err := strconv.Atoi(val); err == nil {
+			minutesToKeep = int64(mtk)
+		} else {
+			logger.Error(err, "Invalid value for minutesToKeep in ConfigMap, using default", "value", val)
+		}
+
+	}
+
+	if val, ok := configMapData.Data["hoursToKeep"]; ok {
+		if htk, err := strconv.Atoi(val); err == nil {
+			hoursToKeep = int64(htk)
+		} else {
+			logger.Error(err, "Invalid value for hoursToKeep in ConfigMap, using default", "value", val)
+		}
+	}
+	return dateNow.AddMinutes(minutesToKeep).AddHours(hoursToKeep).ToString()
+}
+func CreateOrUpdatedManifest(c client.Client, kubernetesObj client.Object, configMapData v1.ConfigMap, action_type string) bool {
 	ctx := context.Background()
 	trInteractor := NewTrashedResourceInteractor(c)
 	if action_type == "create" {
@@ -104,7 +129,7 @@ func CreateOrUpdatedManifest(c client.Client, kubernetesObj client.Object, actio
 			},
 			Spec: moxv1alpha1.TrashedResourceSpec{
 				Data:      string(objectYAML),
-				KeepUntil: utils.Now().AddHours(24).ToString(), // TODO definir o tempo de retenção de forma configurável via configmap por exemplo
+				KeepUntil: getTimetoKeepFromConfigMap(configMapData),
 				// KeepUntil: utils.Now().AddMinutes(1).ToString(), // Para testes rápidos
 			},
 		}

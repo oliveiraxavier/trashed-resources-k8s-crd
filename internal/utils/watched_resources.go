@@ -1,12 +1,10 @@
 package utils
 
 import (
-	"context"
 	"strings"
 
 	v1 "k8s.io/api/core/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 // ResourceGVK define a estrutura para mapear o Group e Version de um Kind
@@ -15,7 +13,6 @@ type ResourceGVK struct {
 	Version string
 }
 
-// knownGVKs contém o mapeamento de Kinds comuns para seus respectivos Group e Version
 var knownGVKs = map[string]ResourceGVK{
 	"deployment":  {Group: "apps", Version: "v1"},
 	"secret":      {Group: "", Version: "v1"},
@@ -28,21 +25,12 @@ var knownGVKs = map[string]ResourceGVK{
 	"service":     {Group: "", Version: "v1"},
 }
 
-func GetKindsToWatch() map[string]ResourceGVK {
+func GetKnownKindsToWatch() map[string]ResourceGVK {
 	return knownGVKs
 }
 
-func GetKindsToWatchFromConfigMap(mgr ctrl.Manager, cmName string) []string {
-	// Lê o ConfigMap para descobrir quais recursos observar
-	ctx := context.Background()
-	var cm v1.ConfigMap
-	// Use APIReader em vez de mgr.GetClient() porque o cache ainda não foi iniciado.
+func GetKindsToWatchFromConfigMap(mgr ctrl.Manager, configMapData v1.ConfigMap, cmName string) []string {
+	rawKinds := strings.Split(configMapData.Data["kindsTobserve"], ";")
 
-	if err := mgr.GetAPIReader().Get(ctx, client.ObjectKey{Namespace: "system", Name: cmName}, &cm); err != nil {
-		cm.Data = map[string]string{"kindsTobserve": "Deployment;Secret;ConfigMap"}
-
-	}
-
-	rawKinds := strings.Split(cm.Data["kindsTobserve"], ";")
-	return strings.Fields(strings.Join(rawKinds, " ")) // Remove espaços extras
+	return strings.Fields(strings.Join(rawKinds, " "))
 }

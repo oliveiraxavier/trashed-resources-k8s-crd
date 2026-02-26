@@ -75,8 +75,10 @@ func (r *TrashedResourceReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		cm.Data = map[string]string{"kindsTobserve": "Deployment;Secret;ConfigMap"}
 		logger.Error(err, "Unable to read ConfigMap, using default values", "kindsTobserve", cm.Data)
 	}
+	logger.Info("Loading configMap " + cmName)
+	configMapData := utils.GetAllConfigsFromConfigMap(mgr, cmName)
 
-	rawKinds := utils.GetKindsToWatchFromConfigMap(mgr, cmName)
+	rawKinds := utils.GetKindsToWatchFromConfigMap(mgr, configMapData, cmName)
 	logger.Info("Loading configMap "+cmName+". Kinds found to watch", "kinds", rawKinds)
 
 	builder := ctrl.NewControllerManagedBy(mgr).
@@ -87,22 +89,21 @@ func (r *TrashedResourceReconciler) SetupWithManager(mgr ctrl.Manager) error {
 				if e.Object.GetObjectKind().GroupVersionKind().Kind == "" {
 					return false
 				}
-				tr_interactions.CreateOrUpdatedManifest(mgr.GetClient(), e.Object, "create")
+				tr_interactions.CreateOrUpdatedManifest(mgr.GetClient(), e.Object, configMapData, "create")
 				return true
 			},
 		}).
 		Named("trashedresources")
 
-	getKindsToWatch(mgr, builder) //append kinds to watch based on configmap
+	getKindsToWatch(mgr, builder, configMapData) //append kinds to watch based on configmap
 
 	builder = builder.Watches(&moxv1alpha1.TrashedResource{}, &handler.EnqueueRequestForObject{})
 
 	return builder.Complete(r)
 }
 
-func getKindsToWatch(mgr ctrl.Manager, builder *ctrl.Builder) *ctrl.Builder {
-	logger.Info("Loading configMap " + cmName)
-	rawKinds := utils.GetKindsToWatchFromConfigMap(mgr, cmName)
+func getKindsToWatch(mgr ctrl.Manager, builder *ctrl.Builder, configMapData v1.ConfigMap) *ctrl.Builder {
+	rawKinds := utils.GetKindsToWatchFromConfigMap(mgr, configMapData, cmName)
 
 	// For each Kind, add a dynamica watch
 	for _, k := range rawKinds {
@@ -110,7 +111,7 @@ func getKindsToWatch(mgr ctrl.Manager, builder *ctrl.Builder) *ctrl.Builder {
 		if kind == "" {
 			continue
 		}
-		knownGVKs := utils.GetKindsToWatch()
+		knownGVKs := utils.GetKnownKindsToWatch()
 		// Busca o GVK correto no mapa (case-insensitive lookup)
 		rgvk, ok := knownGVKs[strings.ToLower(kind)]
 		if !ok {
