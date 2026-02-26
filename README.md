@@ -1,13 +1,12 @@
-# trashed-resources
-// TODO(user): Add simple overview of use/purpose
+# Trashed resources
 
 ## Description
-// TODO(user): An in-depth paragraph about your project and overview of use
+This CRD tracks objects updated or removed from your Kubernetes Cluster, acting as a recycle bin for those deleted or modified items. [WIP]
 
 ## Getting Started
 
 ### Prerequisites
-- go version v1.23.0+
+- go version v1.25.0+
 - docker version 17.03+.
 - kubectl version v1.11.3+.
 - Access to a Kubernetes v1.11.3+ cluster.
