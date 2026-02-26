@@ -44,11 +44,6 @@ type TrashedResourceReconciler struct {
 	Scheme *runtime.Scheme
 }
 
-func createUpdatedOrDeletedManifest(c client.Client, kubernetesObj client.Object, action_type string) {
-	tr_interactions.CreateOrUpdatedManifest(c, kubernetesObj, action_type)
-
-}
-
 // +kubebuilder:rbac:groups=mox.app.br,resources=trashedresources,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=mox.app.br,resources=trashedresources/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=mox.app.br,resources=trashedresources/finalizers,verbs=update
