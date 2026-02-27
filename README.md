@@ -8,6 +8,45 @@ This project introduces a custom CRD designed to enhance cluster safety by track
 
 2 - Provides a sort of "Recycle Bin" for Kubernetes resources.
 
+3 - Cli to interact with the CRD
+
+## Run locally
+
+```sh
+make run
+```
+
+
+## Interact via cli
+
+### Install plugin
+```sh
+make createcmdbin
+export PATH=$PATH:$(pwd)/bin 
+# Or set in your ~/.bashrc (Linux)
+echo export PATH=$PATH:$(pwd)/bin >> ~/.bashrc
+# Or set in your ~/.bashrc (Mac)
+echo export PATH=$PATH:$(pwd)/bin >> ~/.zshrc
+```
+
+### Use plugin with kubectl
+```sh
+# For trashed-resource named trashed-deleted-deployment-nginx-deployment
+kubectl trashedresources prune --name trashed-deleted-deployment-nginx-deployment
+
+# For trashed-resource named trashed-deleted-deployment-nginx-deployment  with age older than 12 minutes
+kubectl trashedresources prune --name trashed-deleted-deployment-nginx-deployment --older-than 12m
+
+# For trashed-resource named trashed-deleted-deployment-nginx-deployment  with age older than 1 hour
+kubectl trashedresources prune --name trashed-deleted-deployment-nginx-deployment --older-than 1h
+
+# For trashed-resource named trashed-deleted-deployment-nginx-deployment  with age older than 1 day
+kubectl trashedresources prune --name trashed-deleted-deployment-nginx-deployment --older-than 1d
+
+# For all trashed-resources in the cluster with age older than 1 day
+kubectl trashedresources prune --older-than 1d
+```
+
 ## Getting Started
 
 ### Prerequisites

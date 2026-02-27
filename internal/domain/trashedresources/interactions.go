@@ -140,6 +140,7 @@ func CreateOrUpdatedManifest(c client.Client, kubernetesObject client.Object, co
 		if objectYAML == nil {
 			return false
 		}
+		setName := fmt.Sprintf("trashed-%s-%s-%s", actionType, strings.ToLower(kubernetesObject.GetObjectKind().GroupVersionKind().Kind), kubernetesObject.GetName())
 		// Cria o TrashedResource
 		trashed := &moxv1alpha1.TrashedResource{
 			TypeMeta: metav1.TypeMeta{
@@ -147,7 +148,8 @@ func CreateOrUpdatedManifest(c client.Client, kubernetesObject client.Object, co
 				APIVersion: "mox.app.br/v1alpha1",
 			},
 			ObjectMeta: metav1.ObjectMeta{
-				GenerateName: fmt.Sprintf("trashed-%s-%s-%s-", actionType, strings.ToLower(kubernetesObject.GetObjectKind().GroupVersionKind().Kind), kubernetesObject.GetName()),
+				GenerateName: setName,
+				Name:         setName,
 				Namespace:    kubernetesObject.GetNamespace(),
 			},
 			Spec: moxv1alpha1.TrashedResourceSpec{
