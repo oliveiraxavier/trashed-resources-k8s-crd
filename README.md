@@ -1,13 +1,56 @@
-# trashed-resources
-// TODO(user): Add simple overview of use/purpose
+# Trashed resources
 
 ## Description
-// TODO(user): An in-depth paragraph about your project and overview of use
+This project introduces a custom CRD designed to enhance cluster safety by tracking objects that are updated or removed from your Kubernetes Cluster. It acts as a recycle bin, ensuring that deleted or modified items are temporarily stored and can be audited or recovered. [WIP]
+
+## Features
+1 - Tracks deletions and updates across the cluster.
+
+2 - Provides a sort of "Recycle Bin" for Kubernetes resources.
+
+3 - Cli to interact with the CRD
+
+## Run locally
+
+```sh
+make run
+```
+
+
+## Interact via cli
+
+### Install plugin
+```sh
+make createcmdbin
+export PATH=$PATH:$(pwd)/bin 
+# Or set in your ~/.bashrc (Linux)
+echo export PATH=$PATH:$(pwd)/bin >> ~/.bashrc
+# Or set in your ~/.bashrc (Mac)
+echo export PATH=$PATH:$(pwd)/bin >> ~/.zshrc
+```
+
+### Use plugin with kubectl
+```sh
+# For trashed-resource named trashed-deleted-deployment-nginx-deployment
+kubectl trashedresources prune --name trashed-deleted-deployment-nginx-deployment
+
+# For trashed-resource named trashed-deleted-deployment-nginx-deployment  with age older than 12 minutes
+kubectl trashedresources prune --name trashed-deleted-deployment-nginx-deployment --older-than 12m
+
+# For trashed-resource named trashed-deleted-deployment-nginx-deployment  with age older than 1 hour
+kubectl trashedresources prune --name trashed-deleted-deployment-nginx-deployment --older-than 1h
+
+# For trashed-resource named trashed-deleted-deployment-nginx-deployment  with age older than 1 day
+kubectl trashedresources prune --name trashed-deleted-deployment-nginx-deployment --older-than 1d
+
+# For all trashed-resources in the cluster with age older than 1 day
+kubectl trashedresources prune --older-than 1d
+```
 
 ## Getting Started
 
 ### Prerequisites
-- go version v1.23.0+
+- go version v1.25.0+
 - docker version 17.03+.
 - kubectl version v1.11.3+.
 - Access to a Kubernetes v1.11.3+ cluster.
