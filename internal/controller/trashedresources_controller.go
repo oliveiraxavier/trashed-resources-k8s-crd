@@ -96,14 +96,14 @@ func (r *TrashedResourceReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		}).
 		Named("trashedresources")
 
-	getKindsToWatch(mgr, builder, configMapData) // append kinds to watch based on configmap
+	appendKindsToWatch(mgr, builder, configMapData) // append kinds to watch based on configmap
 
 	builder = builder.Watches(&moxv1alpha1.TrashedResource{}, &handler.EnqueueRequestForObject{})
 
 	return builder.Complete(r)
 }
 
-func getKindsToWatch(mgr ctrl.Manager, builder *ctrl.Builder, configMapData v1.ConfigMap) *ctrl.Builder {
+func appendKindsToWatch(mgr ctrl.Manager, builder *ctrl.Builder, configMapData v1.ConfigMap) *ctrl.Builder {
 	rawKinds := utils.GetKindsToWatchFromConfigMap(mgr, configMapData, cmName)
 
 	// For each Kind, add a dynamica watch
