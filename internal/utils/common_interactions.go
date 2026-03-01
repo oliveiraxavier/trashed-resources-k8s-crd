@@ -18,7 +18,6 @@ var (
 type TRReconciler TrashedResourceReconciler
 
 func GetAllConfigsFromConfigMap(mgr ctrl.Manager, cmName string) v1.ConfigMap {
-	ctx := context.Background()
 	var cm v1.ConfigMap
 	logger.Info("Loading configMap " + cmName)
 

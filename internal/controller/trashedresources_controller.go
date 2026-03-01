@@ -55,23 +55,21 @@ type TrashedResourceReconciler utils.TrashedResourceReconciler
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.20.2/pkg/reconcile
 func (r *TrashedResourceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	// Example usage: Accessing the config map data stored in the reconciler struct
-	logger.Info("Reconciling with config", "config", r.Config.Data)
-	logger.Info("Reconciling with config 	KindsToWatch", "kindsToWatch", r.KindsToWatch)
-	logger.Info("Reconciling with config 	ActionsToWatch", "actionsToWatch", r.ActionsToWatch)
-	logger.Info("Reconciling with config 	NamespacesToIgnore", "namespacesToIgnore", r.NamespacesToIgnore)
+	// if err := tr_interactions.ListAndDeleteIfExpiredTrashedResources(r.Client, "all", r.NamespacesToIgnore); err != nil {
+	// 	return ctrl.Result{Requeue: true, RequeueAfter: time.Minute}, nil
+	// }
 
 	// 1. Fetch the TrashedResource instance
 	trashedResource, err := tr_interactions.GetToReconcile(ctx, r.Client, req.Name, req.Namespace)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
+	// 2 . Resource not found (deleted), stop reconciliation
 	if trashedResource == nil {
-		// Resource not found (deleted), stop reconciliation
 		return ctrl.Result{}, nil
 	}
 
-	// 2. Check expiration and delete if expired
+	// 3. Check expiration and delete if expired
 	timeRemaining := utils.GetTimeRemaining(trashedResource.Spec.KeepUntil)
 	if timeRemaining <= 0 {
 		logger.Info("TrashedResource expired, deleting", "name", req.Name, "namespace", req.Namespace)
@@ -92,22 +90,17 @@ func (r *TrashedResourceReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	r.HoursToKeep = utils.GetHoursToKeepFromConfigMap(r.Config)
 	r.DaysToKeep = utils.GetDaysToKeepFromConfigMap(r.Config)
 
-	logger.Info("Kinds found to watch", "kinds", r.KindsToWatch)
-	logger.Info("Actions found to watch", "actions", r.ActionsToWatch)
-	logger.Info("Namespaces to ignore", "namespaces", r.NamespacesToIgnore)
-	logger.Info("Minutes to keep", "minutes", r.MinutesToKeep)
-	logger.Info("Hours to keep", "hours", r.HoursToKeep)
-	logger.Info("Days to keep", "days", r.DaysToKeep)
+	logger.Info("# Kinds found to watch ", "kinds", r.KindsToWatch)
+	logger.Info("# Actions found to watch ", "actions", r.ActionsToWatch)
+	logger.Info("# Namespaces to ignore ", "namespaces", r.NamespacesToIgnore)
+	logger.Info("# Minutes to keep ", "minutes", r.MinutesToKeep)
+	logger.Info("# Hours to keep ", "hours", r.HoursToKeep)
+	logger.Info("# Days to keep ", "days", r.DaysToKeep)
 
 	builder := ctrl.NewControllerManagedBy(mgr).
 		For(&moxv1alpha1.TrashedResource{}).
+		Owns(&moxv1alpha1.TrashedResource{}).
 		WithEventFilter(predicate.Funcs{
-			CreateFunc: func(e event.CreateEvent) bool {
-				return false
-			},
-			GenericFunc: func(e event.GenericEvent) bool {
-				return false
-			},
 			UpdateFunc: func(e event.UpdateEvent) bool {
 				keyExists := slices.Contains(r.ActionsToWatch, "update")
 				ignoreNamespace := slices.Contains(r.NamespacesToIgnore, e.ObjectOld.GetNamespace()) ||
@@ -131,20 +124,18 @@ func (r *TrashedResourceReconciler) SetupWithManager(mgr ctrl.Manager) error {
 				}
 				logger.Info("Delete event detected", "name", e.Object.GetName(), "namespace", e.Object.GetNamespace())
 				tr_interactions.CreateOrUpdatedManifest(mgr.GetClient(), e.Object, (*tr_interactions.TRReconciler)(r), "deleted")
-				return false
+				return true
 			},
 		}).
 		Named("trashedresources")
 
-	// Para cada Kind configurado, adiciona um Watch.
-	// Os eventos desses watches serão filtrados pelos predicados definidos acima.
-	// A lógica de criação do TrashedResource acontece DENTRO dos predicados.
-	appendKindsToWatch(mgr, builder, r.Config)
+	// For each Kind present in config, add a Watch.
+	appendKindsToWatch(builder, r.Config)
 
 	return builder.Complete(r)
 }
 
-func appendKindsToWatch(mgr ctrl.Manager, builder *ctrl.Builder, configMapData v1.ConfigMap) *ctrl.Builder {
+func appendKindsToWatch(builder *ctrl.Builder, configMapData v1.ConfigMap) *ctrl.Builder {
 	rawKinds := utils.GetKindsToWatchFromConfigMap(configMapData)
 
 	// For each Kind, add a dynamica watch
@@ -154,7 +145,6 @@ func appendKindsToWatch(mgr ctrl.Manager, builder *ctrl.Builder, configMapData v
 			continue
 		}
 		knownGVKs := utils.GetKnownKindsToWatch()
-		// Busca o GVK correto no mapa (case-insensitive lookup)
 		rgvk, ok := knownGVKs[strings.ToLower(kind)]
 		if !ok {
 			logger.Info("Kind not explicitly mapped; ignoring.", "kind", kind)

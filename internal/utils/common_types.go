@@ -6,7 +6,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-// TrashedResourceReconciler reconciles a trashedresources object
 type TrashedResourceReconciler struct {
 	client.Client
 	Scheme             *runtime.Scheme
