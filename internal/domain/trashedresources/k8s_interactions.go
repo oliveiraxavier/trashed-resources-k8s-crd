@@ -4,13 +4,14 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"strconv"
+	"slices"
 	"strings"
 	moxv1alpha1 "trashed-resources/api/v1alpha1"
+
 	utils "trashed-resources/internal/utils"
 
 	"gopkg.in/yaml.v2"
-	v1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -32,6 +33,7 @@ type TrashedResourceInteractor interface {
 type trashedResourceInteractor struct {
 	client client.Client
 }
+type TRReconciler utils.TrashedResourceReconciler
 
 func makeBodyManifest(kubernetesObj client.Object) []byte {
 	objectJSON, err := json.Marshal(kubernetesObj)
@@ -86,30 +88,7 @@ func makeBodyManifest(kubernetesObj client.Object) []byte {
 	return objectYAML
 }
 
-func getTimetoKeepFromConfigMap(configMapData v1.ConfigMap) string {
-	minutesToKeep := int64(60) // default value
-	hoursToKeep := int64(0)    // default value
-	dateNow := utils.Now()
-	// .AddHours(24).ToString()
-	if val, ok := configMapData.Data["minutesToKeep"]; ok {
-		if mtk, err := strconv.Atoi(val); err == nil {
-			minutesToKeep = int64(mtk)
-		} else {
-			logger.Error(err, "Invalid value for minutesToKeep in ConfigMap, using default", "value", val)
-		}
-
-	}
-
-	if val, ok := configMapData.Data["hoursToKeep"]; ok {
-		if htk, err := strconv.Atoi(val); err == nil {
-			hoursToKeep = int64(htk)
-		} else {
-			logger.Error(err, "Invalid value for hoursToKeep in ConfigMap, using default", "value", val)
-		}
-	}
-	return dateNow.AddMinutes(minutesToKeep).AddHours(hoursToKeep).ToString()
-}
-func ListAndDeleteIfExpiredTrashedResources(c client.Client, namespace string) error {
+func ListAndDeleteIfExpiredTrashedResources(c client.Client, namespace string, namespacesToIgnore []string) error {
 	ctx := context.Background()
 	trInteractor := NewTrashedResourceInteractor(c)
 	trashedList, err := trInteractor.List(ctx, namespace)
@@ -120,9 +99,17 @@ func ListAndDeleteIfExpiredTrashedResources(c client.Client, namespace string) e
 	for _, trashed := range trashedList.Items {
 		timeRemaining := utils.GetTimeRemaining(trashed.Spec.KeepUntil)
 
+		ignoreNamespace := slices.Contains(namespacesToIgnore, trashed.Namespace)
+		if ignoreNamespace {
+			continue
+		}
 		if timeRemaining <= 0 {
 			logger.Info("TrashedResource expired", "name", trashed.Name, "namespace", trashed.Namespace)
 			if err := trInteractor.Delete(ctx, trashed.Name, trashed.Namespace); err != nil {
+				if apierrors.IsNotFound(err) {
+					logger.Info("TrashedResource already deleted", "name", trashed.Name, "namespace", trashed.Namespace)
+					continue
+				}
 				logger.Error(err, "Error deleting TrashedResource")
 				return err
 			}
@@ -131,40 +118,69 @@ func ListAndDeleteIfExpiredTrashedResources(c client.Client, namespace string) e
 	return nil
 }
 
-func CreateOrUpdatedManifest(c client.Client, kubernetesObject client.Object, configMapData v1.ConfigMap, actionType string) bool {
+func CreateOrUpdatedManifest(c client.Client, kubernetesObject client.Object, resourceReconciler *TRReconciler, actionType string) bool {
 	ctx := context.Background()
-	// trInteractor := NewTrashedResourceInteractor(c)
 	trInteractor := trashedResourceInteractor{client: c}
-	if actionType == "deleted" {
-		objectYAML := makeBodyManifest(kubernetesObject)
-		if objectYAML == nil {
-			return false
-		}
-		setName := fmt.Sprintf("trashed-%s-%s-%s", actionType, strings.ToLower(kubernetesObject.GetObjectKind().GroupVersionKind().Kind), kubernetesObject.GetName())
-		// Cria o TrashedResource
-		trashed := &moxv1alpha1.TrashedResource{
-			TypeMeta: metav1.TypeMeta{
-				Kind:       "TrashedResource",
-				APIVersion: "mox.app.br/v1alpha1",
-			},
-			ObjectMeta: metav1.ObjectMeta{
-				GenerateName: setName,
-				Name:         setName,
-				Namespace:    kubernetesObject.GetNamespace(),
-			},
-			Spec: moxv1alpha1.TrashedResourceSpec{
-				Data:      string(objectYAML),
-				KeepUntil: getTimetoKeepFromConfigMap(configMapData),
-				// KeepUntil: utils.Now().AddMinutes(1).ToString(), // Para testes rápidos
-			},
-		}
-		if err := trInteractor.Create(ctx, trashed); err != nil {
-			logger.Error(err, "Error on create TrashedResource")
-			return false
-		}
-		logger.Info("Success on create TrashedResource", "name", trashed.Name, "namespace", trashed.Namespace)
+	objectYAML := makeBodyManifest(kubernetesObject)
+	if objectYAML == nil {
+		return false
 	}
+	dateTime := utils.Now().Format("20060102-150405")
+	setName := fmt.Sprintf("trashed-%s-%s-%s-%s", actionType, strings.ToLower(kubernetesObject.GetObjectKind().GroupVersionKind().Kind), kubernetesObject.GetName(), dateTime)
+
+	// Cria o TrashedResource
+	trashed := &moxv1alpha1.TrashedResource{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "TrashedResource",
+			APIVersion: "mox.app.br/v1alpha1",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			GenerateName: setName,
+			Name:         setName,
+			Namespace:    kubernetesObject.GetNamespace(),
+		},
+		Spec: moxv1alpha1.TrashedResourceSpec{
+			Data:      string(objectYAML),
+			KeepUntil: utils.GetTimetoKeepFromConfigMap((*utils.TRReconciler)(resourceReconciler)),
+		},
+	}
+	if err := trInteractor.Create(ctx, trashed); err != nil {
+		logger.Error(err, "Error on create TrashedResource")
+		return false
+	}
+	logger.Info("Success on create TrashedResource",
+		"kubernetes_object", kubernetesObject.GetObjectKind().GroupVersionKind().Kind,
+		"actionType", actionType,
+		"name", trashed.Name,
+		"namespace", trashed.Namespace,
+	)
 	return true
+}
+
+func GetToReconcile(ctx context.Context, c client.Client, name string, namespace string) (*moxv1alpha1.TrashedResource, error) {
+	trInteractor := NewTrashedResourceInteractor(c)
+	trashedResource, err := trInteractor.Get(ctx, name, namespace)
+	if err != nil {
+		if apierrors.IsNotFound(err) {
+			return nil, nil
+		}
+		return nil, err
+	}
+
+	return trashedResource, nil
+}
+
+func DeleteToReconcile(ctx context.Context, c client.Client, name string, namespace string) error {
+	trInteractor := NewTrashedResourceInteractor(c)
+	err := trInteractor.Delete(ctx, name, namespace)
+	if err != nil {
+		if apierrors.IsNotFound(err) {
+			return nil
+		}
+		return err
+	}
+
+	return nil
 }
 
 // NewTrashedResourceInteractor cria um novo TrashedResourceInteractor.
@@ -177,6 +193,9 @@ func (interactor *trashedResourceInteractor) Get(ctx context.Context, name, name
 	resource := &moxv1alpha1.TrashedResource{}
 	err := interactor.client.Get(ctx, types.NamespacedName{Name: name, Namespace: namespace}, resource)
 	if err != nil {
+		if apierrors.IsNotFound(err) {
+			return nil, nil
+		}
 		return nil, err
 	}
 	return resource, nil

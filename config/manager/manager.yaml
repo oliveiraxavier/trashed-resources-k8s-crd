@@ -103,7 +103,10 @@ metadata:
   name: trashedresources-config
   namespace: system
 data:
-  kindsTobserve: |
-    Deployment; Secret; ConfigMap
-  minutesToKeep: "1" #optional, default is 60. Value is in minutes, and it defines how long the TrashedResource will be kept before being deleted.
-  hoursToKeep: "1" #optional, default is 0. Value is in hours, and it defines how long the TrashedResource will be kept before being deleted.
+  namespacesToIgnore: istio-system; kube-node-lease; kube-public; kube-system
+  actionsToObserve: delete; update
+  kindsTobserve: Deployment; Secret; ConfigMap
+  minutesToKeep: "1" #optional, default is 60. Value is in minutes. It defines how long the TrashedResource will be kept before being deleted.
+  hoursToKeep: "0" #optional, default is 0. Value is in hours. It defines how long the TrashedResource will be kept before being deleted.
+  daysToKeep: "0" #optional, default is 0. Value is in day (or days). It defines how long the TrashedResource will be kept before being deleted.
+

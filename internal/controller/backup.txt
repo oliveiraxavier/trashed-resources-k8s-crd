@@ -1,0 +1,30 @@
+func (r *TrashedResourceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+	logger := log.FromContext(ctx)
+	logger.Info("Reconciling TrashedResource", "request", req.NamespacedName)
+
+	trashedResource, err := tr_interactions.GetToReconcile(r.Client, req.Name, req.Namespace)
+	logger.Info("Fetched TrashedResource", "name", req.Name, "namespace", req.Namespace, "found", trashedResource != nil)
+	if err != nil {
+		return ctrl.Result{RequeueAfter: time.Minute}, nil
+	}
+
+	// Check if the resource is expired.
+	if utils.NowIsAfterOrEqualCompareDate(trashedResource.Spec.KeepUntil) {
+		logger.Info("TrashedResource has expired. Deleting.", "name", trashedResource.Name, "namespace", trashedResource.Namespace)
+		if err := tr_interactions.DeleteToReconcile(r.Client, trashedResource.Name, trashedResource.Namespace); err != nil {
+			logger.Error(err, "Failed to delete expired TrashedResource")
+			return ctrl.Result{}, err
+		}
+		return ctrl.Result{}, nil
+	}
+
+	logger.Info("###########", "request", trashedResource)
+	// If not expired, calculate the remaining time and requeue.
+	timeRemaining := utils.GetTimeRemaining(trashedResource.Spec.KeepUntil)
+	if timeRemaining < 0 {
+		timeRemaining = 0
+	}
+	logger.Info("Requeuing TrashedResource for future cleanup check", "name", trashedResource.Name, "requeueAfter", timeRemaining)
+
+	return ctrl.Result{RequeueAfter: timeRemaining, Requeue: true}, nil
+}
