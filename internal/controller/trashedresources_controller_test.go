@@ -19,14 +19,16 @@ package controller
 import (
 	"context"
 	moxv1alpha1 "trashed-resources/api/v1alpha1"
+	utils "trashed-resources/internal/utils"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 var _ = Describe("TrashedResource Controller", func() {
@@ -42,15 +44,61 @@ var _ = Describe("TrashedResource Controller", func() {
 
 		BeforeEach(func() {
 			By("creating the custom resource for the Kind trashedresources")
+			deployment := &appsv1.Deployment{
+				TypeMeta: metav1.TypeMeta{
+					Kind:       "Deployment",
+					APIVersion: "apps/v1",
+				},
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      resourceName,
+					Namespace: "default",
+				},
+				Spec: appsv1.DeploymentSpec{
+					Replicas: func(i int32) *int32 { return &i }(1),
+					Selector: &metav1.LabelSelector{
+						MatchLabels: map[string]string{"app": "test"},
+					},
+					Template: corev1.PodTemplateSpec{
+						ObjectMeta: metav1.ObjectMeta{
+							Labels: map[string]string{"app": "test"},
+						},
+						Spec: corev1.PodSpec{
+							Containers: []corev1.Container{
+								{
+									Name:  "nginx",
+									Image: "nginx:latest",
+								},
+							},
+						},
+					},
+				},
+			}
+			//Expect(k8sClient.Create(ctx, deployment)).To(Succeed())
+
+			objectYAML := utils.MakeBodyManifest(deployment)
+			Expect(objectYAML).NotTo(BeNil())
+
 			resource := &moxv1alpha1.TrashedResource{}
 			err := k8sClient.Get(ctx, typeNamespacedName, resource)
 			if err != nil && errors.IsNotFound(err) {
 				resource := &moxv1alpha1.TrashedResource{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      resourceName,
-						Namespace: "default",
+					TypeMeta: metav1.TypeMeta{
+						Kind:       "TrashedResource",
+						APIVersion: "mox.app.br/v1alpha1",
 					},
-					// TODO(user): Specify other spec details if needed.
+					ObjectMeta: metav1.ObjectMeta{
+						GenerateName: resourceName,
+						Name:         resourceName,
+						Namespace:    "default",
+					},
+					Spec: moxv1alpha1.TrashedResourceSpec{
+						Data: string(objectYAML),
+						KeepUntil: utils.GetTimetoKeepFromConfigMap(&utils.TRReconciler{
+							MinutesToKeep: "60",
+							HoursToKeep:   "0",
+							DaysToKeep:    "0",
+						}),
+					},
 				}
 				Expect(k8sClient.Create(ctx, resource)).To(Succeed())
 			}

@@ -2,7 +2,6 @@ package trashedresources
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"slices"
 	"strings"
@@ -10,7 +9,6 @@ import (
 
 	utils "trashed-resources/internal/utils"
 
-	"gopkg.in/yaml.v2"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -34,59 +32,6 @@ type trashedResourceInteractor struct {
 	client client.Client
 }
 type TRReconciler utils.TrashedResourceReconciler
-
-func makeBodyManifest(kubernetesObj client.Object) []byte {
-	objectJSON, err := json.Marshal(kubernetesObj)
-	if err != nil {
-		logger.Error(err, "Error serializing object to JSON")
-		return nil
-	}
-	var objectMap map[string]interface{}
-	if err := json.Unmarshal(objectJSON, &objectMap); err != nil {
-		logger.Error(err, "Error deserializing object JSON")
-		return nil
-	}
-	// Ensure apiVersion and kind are present in the serialized object
-	gvk := kubernetesObj.GetObjectKind().GroupVersionKind()
-	kind := gvk.Kind
-	apiVersion := ""
-	if gvk.Version != "" {
-		if gvk.Group != "" {
-			apiVersion = gvk.Group + "/" + gvk.Version
-		} else {
-			apiVersion = gvk.Version
-		}
-	}
-	knownGVKs := utils.GetKnownKindsToWatch()
-	if apiVersion == "" && kind != "" {
-		if rgvk, ok := knownGVKs[strings.ToLower(kind)]; ok {
-			if rgvk.Group != "" {
-				apiVersion = rgvk.Group + "/" + rgvk.Version
-			} else {
-				apiVersion = rgvk.Version
-			}
-		}
-	}
-	if _, ok := objectMap["kind"]; !ok && kind != "" {
-		objectMap["kind"] = kind
-	}
-	if _, ok := objectMap["apiVersion"]; !ok && apiVersion != "" {
-		objectMap["apiVersion"] = apiVersion
-	}
-
-	// Remove managedFields from metadata when present to simplify the YAML
-	if md, ok := objectMap["metadata"].(map[string]interface{}); ok {
-		delete(md, "managedFields")
-	}
-
-	objectYAML, err := yaml.Marshal(objectMap)
-	if err != nil {
-		logger.Error(err, "Error serializing object to YAML")
-		return nil
-	}
-
-	return objectYAML
-}
 
 func ListAndDeleteIfExpiredTrashedResources(c client.Client, namespace string, namespacesToIgnore []string) error {
 	ctx := context.Background()
@@ -121,7 +66,7 @@ func ListAndDeleteIfExpiredTrashedResources(c client.Client, namespace string, n
 func CreateOrUpdatedManifest(c client.Client, kubernetesObject client.Object, resourceReconciler *TRReconciler, actionType string) bool {
 	ctx := context.Background()
 	trInteractor := trashedResourceInteractor{client: c}
-	objectYAML := makeBodyManifest(kubernetesObject)
+	objectYAML := utils.MakeBodyManifest(kubernetesObject)
 	if objectYAML == nil {
 		return false
 	}
