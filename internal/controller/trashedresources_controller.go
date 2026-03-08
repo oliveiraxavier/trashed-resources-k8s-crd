@@ -19,14 +19,14 @@ package controller
 import (
 	"context"
 	"strings"
-	"time"
 	moxv1alpha1 "trashed-resources/api/v1alpha1"
 	tr_interactions "trashed-resources/internal/domain/trashedresources"
 	utils "trashed-resources/internal/utils"
 
+	"slices"
+
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -36,14 +36,13 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 )
 
-var logger = log.Log
-var cmName = "trashedresources-config"
+var (
+	logger = log.Log
+	cmName = "trashedresources-config"
+)
 
-// TrashedResourceReconciler reconciles a trashedresources object
-type TrashedResourceReconciler struct {
-	client.Client
-	Scheme *runtime.Scheme
-}
+// TrashedResourceReconciler wraps the common reconciler to allow defining methods in this package.
+type TrashedResourceReconciler utils.TrashedResourceReconciler
 
 // +kubebuilder:rbac:groups=mox.app.br,resources=trashedresources,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=mox.app.br,resources=trashedresources/status,verbs=get;update;patch
@@ -57,54 +56,92 @@ type TrashedResourceReconciler struct {
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.20.2/pkg/reconcile
 func (r *TrashedResourceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	if err := tr_interactions.ListAndDeleteIfExpiredTrashedResources(r.Client, "all"); err != nil {
-		return ctrl.Result{Requeue: true, RequeueAfter: time.Second * 10}, nil
+	// 1. Fetch the TrashedResource instance
+	trashedResource, err := tr_interactions.GetToReconcile(ctx, r.Client, req.Name, req.Namespace)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+	// 2 . Resource not found (deleted), stop reconciliation
+	if trashedResource == nil {
+		return ctrl.Result{}, nil
 	}
 
-	return ctrl.Result{Requeue: true, RequeueAfter: time.Minute}, nil
+	// 3. Check expiration and delete if expired
+	timeRemaining := utils.GetTimeRemaining(trashedResource.Spec.KeepUntil)
+	if timeRemaining <= 0 {
+		logger.Info("TrashedResource expired, deleting", "name", req.Name, "namespace", req.Namespace)
+		return ctrl.Result{}, tr_interactions.DeleteToReconcile(ctx, r.Client, req.Name, req.Namespace)
+	}
+
+	// 3. Requeue after the remaining time
+	return ctrl.Result{RequeueAfter: timeRemaining}, nil
 }
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *TrashedResourceReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	// Lê o ConfigMap para descobrir quais recursos observar
-	ctx := context.Background()
-	var cm v1.ConfigMap
-	// Use APIReader em vez de mgr.GetClient() porque o cache ainda não foi iniciado.
+	r.Config = utils.GetAllConfigsFromConfigMap(mgr, cmName)
+	r.KindsToWatch = utils.GetKindsToWatchFromConfigMap(r.Config)
+	r.ActionsToWatch = utils.GetActionsToWatchFromConfigMap(r.Config)
+	r.NamespacesToIgnore = utils.GetNamespacesToIgnoreFromConfigMap(r.Config)
+	r.MinutesToKeep = utils.GetMinutesToKeepFromConfigMap(r.Config)
+	r.HoursToKeep = utils.GetHoursToKeepFromConfigMap(r.Config)
+	r.DaysToKeep = utils.GetDaysToKeepFromConfigMap(r.Config)
 
-	if err := mgr.GetAPIReader().Get(ctx, client.ObjectKey{Namespace: "system", Name: cmName}, &cm); err != nil {
-		cm.Data = map[string]string{"kindsTobserve": "Deployment;Secret;ConfigMap"}
-		logger.Error(err, "Unable to read ConfigMap, using default values", "kindsTobserve", cm.Data)
-	}
-	logger.Info("Loading configMap " + cmName)
-	configMapData := utils.GetAllConfigsFromConfigMap(mgr, cmName)
-
-	rawKinds := utils.GetKindsToWatchFromConfigMap(mgr, configMapData, cmName)
-	logger.Info("Loading configMap "+cmName+". Kinds found to watch", "kinds", rawKinds)
+	logger.Info("# Kinds found to watch ", "kinds", r.KindsToWatch)
+	logger.Info("# Actions found to watch ", "actions", r.ActionsToWatch)
+	logger.Info("# Namespaces to ignore ", "namespaces", r.NamespacesToIgnore)
+	logger.Info("# Minutes to keep ", "minutes", r.MinutesToKeep)
+	logger.Info("# Hours to keep ", "hours", r.HoursToKeep)
+	logger.Info("# Days to keep ", "days", r.DaysToKeep)
 
 	builder := ctrl.NewControllerManagedBy(mgr).
 		For(&moxv1alpha1.TrashedResource{}).
+		Owns(&moxv1alpha1.TrashedResource{}).
 		WithEventFilter(predicate.Funcs{
-			UpdateFunc: func(e event.UpdateEvent) bool { return false },
+			UpdateFunc: func(e event.UpdateEvent) bool {
+				return r.HandleUpdate(e, mgr.GetClient())
+			},
 			DeleteFunc: func(e event.DeleteEvent) bool {
-				if e.Object.GetObjectKind().GroupVersionKind().Kind == "" {
-					return false
-				}
-				tr_interactions.CreateOrUpdatedManifest(mgr.GetClient(), e.Object, configMapData, "deleted")
-
-				return true
+				return r.HandleDelete(e, mgr.GetClient())
 			},
 		}).
 		Named("trashedresources")
 
-	appendKindsToWatch(mgr, builder, configMapData) // append kinds to watch based on configmap
-
-	builder = builder.Watches(&moxv1alpha1.TrashedResource{}, &handler.EnqueueRequestForObject{})
+	// For each Kind present in config, add a Watch.
+	appendKindsToWatch(builder, r.Config)
 
 	return builder.Complete(r)
 }
 
-func appendKindsToWatch(mgr ctrl.Manager, builder *ctrl.Builder, configMapData v1.ConfigMap) *ctrl.Builder {
-	rawKinds := utils.GetKindsToWatchFromConfigMap(mgr, configMapData, cmName)
+func (r *TrashedResourceReconciler) HandleUpdate(e event.UpdateEvent, c client.Client) bool {
+	keyExists := slices.Contains(r.ActionsToWatch, "update")
+	ignoreNamespace := slices.Contains(r.NamespacesToIgnore, e.ObjectOld.GetNamespace()) ||
+		slices.Contains(r.NamespacesToIgnore, e.ObjectNew.GetNamespace())
+
+	if e.ObjectOld.GetObjectKind().GroupVersionKind().Kind == "" ||
+		e.ObjectOld.GetGeneration() == e.ObjectNew.GetGeneration() || // Ignore status updates
+		!keyExists || ignoreNamespace {
+		return false
+	}
+	logger.Info("Update event detected", "name", e.ObjectOld.GetName(), "namespace", e.ObjectOld.GetNamespace())
+	tr_interactions.CreateOrUpdatedManifest(c, e.ObjectOld, (*tr_interactions.TRReconciler)(r), "updated")
+	return true
+}
+
+func (r *TrashedResourceReconciler) HandleDelete(e event.DeleteEvent, c client.Client) bool {
+	keyExists := slices.Contains(r.ActionsToWatch, "delete")
+	ignoreNamespace := slices.Contains(r.NamespacesToIgnore, e.Object.GetNamespace())
+
+	if e.Object.GetObjectKind().GroupVersionKind().Kind == "" || (!keyExists || ignoreNamespace) {
+		return false
+	}
+	logger.Info("Delete event detected", "name", e.Object.GetName(), "namespace", e.Object.GetNamespace())
+	tr_interactions.CreateOrUpdatedManifest(c, e.Object, (*tr_interactions.TRReconciler)(r), "deleted")
+	return true
+}
+
+func appendKindsToWatch(builder *ctrl.Builder, configMapData v1.ConfigMap) {
+	rawKinds := utils.GetKindsToWatchFromConfigMap(configMapData)
 
 	// For each Kind, add a dynamica watch
 	for _, k := range rawKinds {
@@ -113,11 +150,10 @@ func appendKindsToWatch(mgr ctrl.Manager, builder *ctrl.Builder, configMapData v
 			continue
 		}
 		knownGVKs := utils.GetKnownKindsToWatch()
-		// Busca o GVK correto no mapa (case-insensitive lookup)
 		rgvk, ok := knownGVKs[strings.ToLower(kind)]
 		if !ok {
 			logger.Info("Kind not explicitly mapped; ignoring.", "kind", kind)
-			logger.Info("Kinds mapped are:", "kinds", knownGVKs)
+			logger.Info("Kinds mapped are: " + utils.KnownGVKsAsString())
 			continue
 		}
 
@@ -129,8 +165,6 @@ func appendKindsToWatch(mgr ctrl.Manager, builder *ctrl.Builder, configMapData v
 		logger.Info("Watching kind", "kind", kind)
 		u := &unstructured.Unstructured{}
 		u.SetGroupVersionKind(gvk)
-		builder = builder.Watches(u, &handler.EnqueueRequestForObject{})
+		builder.Watches(u, &handler.EnqueueRequestForObject{})
 	}
-
-	return builder
 }

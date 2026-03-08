@@ -21,6 +21,8 @@ import (
 	moxv1alpha1 "trashed-resources/api/v1alpha1"
 )
 
+type clientGetterFunc func(flags *genericclioptions.ConfigFlags) (client.Client, error)
+
 var (
 	scheme = runtime.NewScheme()
 )
@@ -45,7 +47,34 @@ func main() {
 	kubernetesConfigFlags.AddFlags(rootCmd.PersistentFlags())
 
 	// --- RESTORE Command ---
-	restoreCmd := &cobra.Command{
+	restoreCmd := restoreCmd(kubernetesConfigFlags, getClient)
+	rootCmd.AddCommand(restoreCmd)
+
+	// --- PRUNE Command Delete  by age  or name
+	pruneCmd := pruneCmd(kubernetesConfigFlags, getClient)
+
+	rootCmd.AddCommand(pruneCmd)
+
+	if err := rootCmd.Execute(); err != nil {
+		os.Exit(1)
+	}
+}
+
+func getClient(flags *genericclioptions.ConfigFlags) (client.Client, error) {
+	cfg, err := flags.ToRESTConfig()
+	if err != nil {
+		// Fallback to in-cluster or local default if flags fail
+		cfg, err = config.GetConfig()
+		if err != nil {
+			return nil, err
+		}
+	}
+	return client.New(cfg, client.Options{Scheme: scheme})
+}
+
+func restoreCmd(kubernetesConfigFlags *genericclioptions.ConfigFlags, clientGetter clientGetterFunc) *cobra.Command {
+
+	return &cobra.Command{
 		Use:   "restore [NAME]",
 		Short: "Restores a deleted resource from a TrashedResource",
 		Args:  cobra.ExactArgs(1),
@@ -56,7 +85,7 @@ func main() {
 				return err
 			}
 
-			k8sClient, err := getClient(kubernetesConfigFlags)
+			k8sClient, err := clientGetter(kubernetesConfigFlags)
 			if err != nil {
 				return err
 			}
@@ -64,20 +93,27 @@ func main() {
 			return restoreResource(k8sClient, resourceName, ns)
 		},
 	}
-	rootCmd.AddCommand(restoreCmd)
+}
 
-	// --- PRUNE Command Delete  by age  or name
+func pruneCmd(kubernetesConfigFlags *genericclioptions.ConfigFlags, clientGetter clientGetterFunc) *cobra.Command {
 	var olderThan string
-	var name string
+
 	pruneCmd := &cobra.Command{
 		Use:   "prune",
 		Short: "Deletes TrashedResources older than a specified duration",
 		Long: `Example: kubectl trashedresources prune --older-than 1d
-		or kubectl trashedresources prune --name trashed-deployment-myapp-12345`,
+or kubectl trashedresources prune trashed-deployment-myapp-12345`,
+		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if olderThan == "" && name == "" {
-				return fmt.Errorf("flag --older-than or --name is required")
+			name := ""
+			if len(args) > 0 {
+				name = args[0]
 			}
+
+			if name == "" && olderThan == "" {
+				return fmt.Errorf("either a resource name or the --older-than flag is required")
+			}
+
 			hasArgumentDuration := false
 			duration := time.Duration(0)
 			var err error
@@ -109,7 +145,7 @@ func main() {
 				ns = ""
 			}
 
-			k8sClient, err := getClient(kubernetesConfigFlags)
+			k8sClient, err := clientGetter(kubernetesConfigFlags)
 			if err != nil {
 				return err
 			}
@@ -117,26 +153,10 @@ func main() {
 			return pruneResources(k8sClient, ns, duration, hasArgumentDuration, name)
 		},
 	}
+
 	pruneCmd.Flags().StringVar(&olderThan, "older-than", "", "Duration to consider old (e.g. 14m, 11h, 24h)")
-	pruneCmd.Flags().StringVar(&name, "name", "", "Name of the TrashedResource to delete")
 
-	rootCmd.AddCommand(pruneCmd)
-
-	if err := rootCmd.Execute(); err != nil {
-		os.Exit(1)
-	}
-}
-
-func getClient(flags *genericclioptions.ConfigFlags) (client.Client, error) {
-	cfg, err := flags.ToRESTConfig()
-	if err != nil {
-		// Fallback to in-cluster or local default if flags fail
-		cfg, err = config.GetConfig()
-		if err != nil {
-			return nil, err
-		}
-	}
-	return client.New(cfg, client.Options{Scheme: scheme})
+	return pruneCmd
 }
 
 func restoreResource(c client.Client, name, namespace string) error {
@@ -182,8 +202,8 @@ func restoreResource(c client.Client, name, namespace string) error {
 	return nil
 }
 
-func pruneResources(c client.Client, namespace string, olderThan time.Duration,
-	hasArgumentDuration bool, name string) error {
+func pruneResources(c client.Client, namespace string, olderThan time.Duration, hasArgumentDuration bool,
+	name string) error {
 	ctx := context.Background()
 	list := &moxv1alpha1.TrashedResourceList{}
 
