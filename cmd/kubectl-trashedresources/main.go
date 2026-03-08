@@ -173,31 +173,38 @@ func restoreResource(c client.Client, name, namespace string) error {
 
 	// 2. Convert spec.data (YAML string) to Unstructured
 	decoder := yaml.NewYAMLOrJSONDecoder(strings.NewReader(trashed.Spec.Data), 4096)
-	newObj := &unstructured.Unstructured{}
-	if err := decoder.Decode(newObj); err != nil {
+	restoredObject := &unstructured.Unstructured{}
+	if err := decoder.Decode(restoredObject); err != nil {
 		return fmt.Errorf("failed to decode resource data: %v", err)
 	}
 
-	newObj.SetUID("")
-	newObj.SetResourceVersion("")
-	newObj.SetGeneration(newObj.GetGeneration())
-	newObj.SetGeneration(newObj.GetGeneration())
-	newObj.SetCreationTimestamp(newObj.GetCreationTimestamp())
-	newObj.SetOwnerReferences(newObj.GetOwnerReferences())
-	newObj.SetManagedFields(newObj.GetManagedFields())
+	// Before creating, we must clear metadata fields that are managed by the cluster.
+	restoredObject.SetUID("")
+	restoredObject.SetResourceVersion("")
+	restoredObject.SetGeneration(0)
+	restoredObject.SetCreationTimestamp(metav1.Time{})
+	restoredObject.SetOwnerReferences(nil)
+	restoredObject.SetManagedFields(nil)
+	unstructured.RemoveNestedField(restoredObject.Object, "status")
+	getOriginalName := restoredObject.GetAnnotations()["OriginalName"]
+	if getOriginalName != "" {
+		restoredObject.SetName(getOriginalName)
+	} else {
+		restoredObject.SetName(restoredObject.GetName())
+	}
 
-	err = c.Create(ctx, newObj)
+	err = c.Create(ctx, restoredObject)
 	if err != nil {
 		if errors.IsAlreadyExists(err) {
-			return fmt.Errorf("resource %s %s/%s already exists", newObj.GetKind(), newObj.GetNamespace(), newObj.GetName())
+			return fmt.Errorf("resource %s %s/%s already exists", restoredObject.GetKind(), restoredObject.GetNamespace(), restoredObject.GetName())
 		}
 		return fmt.Errorf("failed to create restored resource: %v", err)
 	}
 
-	fmt.Printf("Success! Resource %s %s/%s restored.\n", newObj.GetKind(), newObj.GetNamespace(), newObj.GetName())
+	fmt.Printf("Success! Resource %s %s/%s restored.\n", restoredObject.GetKind(), restoredObject.GetNamespace(), restoredObject.GetName())
 	err = c.Delete(ctx, trashed, client.PropagationPolicy(metav1.DeletePropagationBackground))
 	if err != nil {
-		return fmt.Errorf("failed to delete TrashedResource %s/%s: %v. You should manually delete it", namespace, name, err)
+		fmt.Printf("Warning: failed to delete TrashedResource %s/%s: %v. You should manually delete it\n", namespace, name, err)
 	}
 	return nil
 }
