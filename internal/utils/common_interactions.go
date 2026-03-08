@@ -27,7 +27,8 @@ func GetAllConfigsFromConfigMap(mgr ctrl.Manager, cmName string) v1.ConfigMap {
 	// Use APIReader instead of mgr.GetClient() because the cache is not yet initialized.
 	if err := mgr.GetAPIReader().Get(ctx, client.ObjectKey{Namespace: "system", Name: cmName}, &cm); err != nil {
 		cm.Data = map[string]string{
-			"kindsTobserve":      "Deployment;Secret;ConfigMap",
+			// are same of config/manager/manager.yaml
+			"kindsToObserve":     "Deployment;Secret;ConfigMap",
 			"actionsToObserve":   "delete",
 			"namespacesToIgnore": "istio-system; kube-node-lease; kube-public; kube-system",
 			"minutesToKeep":      "60",

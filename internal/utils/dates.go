@@ -13,7 +13,7 @@ type DateTime struct {
 
 var GetTimeRemaining = func(futureDateToCompare string) time.Duration {
 	parsedTime, _ := time.Parse(timeFormat, futureDateToCompare)
-	return parsedTime.Sub(Now().Time) // return time.Until(parsedTime)
+	return parsedTime.Sub(Now().Time)
 }
 
 // Now initializes DateTime with the current time

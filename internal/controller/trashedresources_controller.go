@@ -29,6 +29,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -55,10 +56,6 @@ type TrashedResourceReconciler utils.TrashedResourceReconciler
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.20.2/pkg/reconcile
 func (r *TrashedResourceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	// if err := tr_interactions.ListAndDeleteIfExpiredTrashedResources(r.Client, "all", r.NamespacesToIgnore); err != nil {
-	// 	return ctrl.Result{Requeue: true, RequeueAfter: time.Minute}, nil
-	// }
-
 	// 1. Fetch the TrashedResource instance
 	trashedResource, err := tr_interactions.GetToReconcile(ctx, r.Client, req.Name, req.Namespace)
 	if err != nil {
@@ -77,7 +74,7 @@ func (r *TrashedResourceReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 	}
 
 	// 3. Requeue after the remaining time
-	return ctrl.Result{Requeue: true, RequeueAfter: timeRemaining}, nil
+	return ctrl.Result{RequeueAfter: timeRemaining}, nil
 }
 
 // SetupWithManager sets up the controller with the Manager.
@@ -102,29 +99,10 @@ func (r *TrashedResourceReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Owns(&moxv1alpha1.TrashedResource{}).
 		WithEventFilter(predicate.Funcs{
 			UpdateFunc: func(e event.UpdateEvent) bool {
-				keyExists := slices.Contains(r.ActionsToWatch, "update")
-				ignoreNamespace := slices.Contains(r.NamespacesToIgnore, e.ObjectOld.GetNamespace()) ||
-					slices.Contains(r.NamespacesToIgnore, e.ObjectNew.GetNamespace())
-
-				if e.ObjectOld.GetObjectKind().GroupVersionKind().Kind == "" ||
-					e.ObjectOld.GetGeneration() == e.ObjectNew.GetGeneration() || // Ignore status updates
-					!keyExists || ignoreNamespace {
-					return false
-				}
-				logger.Info("Update event detected", "name", e.ObjectOld.GetName(), "namespace", e.ObjectOld.GetNamespace())
-				tr_interactions.CreateOrUpdatedManifest(mgr.GetClient(), e.ObjectOld, (*tr_interactions.TRReconciler)(r), "updated")
-				return false
+				return r.HandleUpdate(e, mgr.GetClient())
 			},
 			DeleteFunc: func(e event.DeleteEvent) bool {
-				keyExists := slices.Contains(r.ActionsToWatch, "delete")
-				ignoreNamespace := slices.Contains(r.NamespacesToIgnore, e.Object.GetNamespace())
-
-				if e.Object.GetObjectKind().GroupVersionKind().Kind == "" || (!keyExists || ignoreNamespace) {
-					return false
-				}
-				logger.Info("Delete event detected", "name", e.Object.GetName(), "namespace", e.Object.GetNamespace())
-				tr_interactions.CreateOrUpdatedManifest(mgr.GetClient(), e.Object, (*tr_interactions.TRReconciler)(r), "deleted")
-				return true
+				return r.HandleDelete(e, mgr.GetClient())
 			},
 		}).
 		Named("trashedresources")
@@ -135,7 +113,34 @@ func (r *TrashedResourceReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return builder.Complete(r)
 }
 
-func appendKindsToWatch(builder *ctrl.Builder, configMapData v1.ConfigMap) *ctrl.Builder {
+func (r *TrashedResourceReconciler) HandleUpdate(e event.UpdateEvent, c client.Client) bool {
+	keyExists := slices.Contains(r.ActionsToWatch, "update")
+	ignoreNamespace := slices.Contains(r.NamespacesToIgnore, e.ObjectOld.GetNamespace()) ||
+		slices.Contains(r.NamespacesToIgnore, e.ObjectNew.GetNamespace())
+
+	if e.ObjectOld.GetObjectKind().GroupVersionKind().Kind == "" ||
+		e.ObjectOld.GetGeneration() == e.ObjectNew.GetGeneration() || // Ignore status updates
+		!keyExists || ignoreNamespace {
+		return false
+	}
+	logger.Info("Update event detected", "name", e.ObjectOld.GetName(), "namespace", e.ObjectOld.GetNamespace())
+	tr_interactions.CreateOrUpdatedManifest(c, e.ObjectOld, (*tr_interactions.TRReconciler)(r), "updated")
+	return true
+}
+
+func (r *TrashedResourceReconciler) HandleDelete(e event.DeleteEvent, c client.Client) bool {
+	keyExists := slices.Contains(r.ActionsToWatch, "delete")
+	ignoreNamespace := slices.Contains(r.NamespacesToIgnore, e.Object.GetNamespace())
+
+	if e.Object.GetObjectKind().GroupVersionKind().Kind == "" || (!keyExists || ignoreNamespace) {
+		return false
+	}
+	logger.Info("Delete event detected", "name", e.Object.GetName(), "namespace", e.Object.GetNamespace())
+	tr_interactions.CreateOrUpdatedManifest(c, e.Object, (*tr_interactions.TRReconciler)(r), "deleted")
+	return true
+}
+
+func appendKindsToWatch(builder *ctrl.Builder, configMapData v1.ConfigMap) {
 	rawKinds := utils.GetKindsToWatchFromConfigMap(configMapData)
 
 	// For each Kind, add a dynamica watch
@@ -148,7 +153,7 @@ func appendKindsToWatch(builder *ctrl.Builder, configMapData v1.ConfigMap) *ctrl
 		rgvk, ok := knownGVKs[strings.ToLower(kind)]
 		if !ok {
 			logger.Info("Kind not explicitly mapped; ignoring.", "kind", kind)
-			logger.Info("Kinds mapped are:", "kinds", knownGVKs)
+			logger.Info("Kinds mapped are: " + utils.KnownGVKsAsString())
 			continue
 		}
 
@@ -160,8 +165,6 @@ func appendKindsToWatch(builder *ctrl.Builder, configMapData v1.ConfigMap) *ctrl
 		logger.Info("Watching kind", "kind", kind)
 		u := &unstructured.Unstructured{}
 		u.SetGroupVersionKind(gvk)
-		builder = builder.Watches(u, &handler.EnqueueRequestForObject{})
+		builder.Watches(u, &handler.EnqueueRequestForObject{})
 	}
-
-	return builder
 }

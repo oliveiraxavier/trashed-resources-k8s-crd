@@ -1,6 +1,8 @@
 package utils
 
 import (
+	"fmt"
+	"sort"
 	"strings"
 
 	v1 "k8s.io/api/core/v1"
@@ -28,8 +30,34 @@ func GetKnownKindsToWatch() map[string]ResourceGVK {
 	return knownGVKs
 }
 
+func KnownGVKsAsString() string {
+	keys := make([]string, 0, len(knownGVKs))
+	for k := range knownGVKs {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+
+	var builder strings.Builder
+	for i, k := range keys {
+		gvk := knownGVKs[k]
+		var gvkString string
+		if gvk.Group == "" {
+			gvkString = gvk.Version
+		} else {
+			gvkString = fmt.Sprintf("%s/%s", gvk.Group, gvk.Version)
+		}
+		fmt.Fprintf(&builder, "%s (%s)", k, gvkString)
+
+		if i < len(keys)-1 {
+			builder.WriteString(", ")
+		}
+	}
+
+	return builder.String()
+}
+
 func GetKindsToWatchFromConfigMap(configMapData v1.ConfigMap) []string {
-	rawKinds := strings.Split(configMapData.Data["kindsTobserve"], ";")
+	rawKinds := strings.Split(configMapData.Data["kindsToObserve"], ";")
 
 	return strings.Fields(strings.Join(rawKinds, " "))
 }

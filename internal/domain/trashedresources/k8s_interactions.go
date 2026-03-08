@@ -3,7 +3,6 @@ package trashedresources
 import (
 	"context"
 	"fmt"
-	"slices"
 	"strings"
 	moxv1alpha1 "trashed-resources/api/v1alpha1"
 
@@ -32,36 +31,6 @@ type trashedResourceInteractor struct {
 	client client.Client
 }
 type TRReconciler utils.TrashedResourceReconciler
-
-func ListAndDeleteIfExpiredTrashedResources(c client.Client, namespace string, namespacesToIgnore []string) error {
-	ctx := context.Background()
-	trInteractor := NewTrashedResourceInteractor(c)
-	trashedList, err := trInteractor.List(ctx, namespace)
-	if err != nil {
-		logger.Error(err, "Error listing TrashedResources")
-		return err
-	}
-	for _, trashed := range trashedList.Items {
-		timeRemaining := utils.GetTimeRemaining(trashed.Spec.KeepUntil)
-
-		ignoreNamespace := slices.Contains(namespacesToIgnore, trashed.Namespace)
-		if ignoreNamespace {
-			continue
-		}
-		if timeRemaining <= 0 {
-			logger.Info("TrashedResource expired", "name", trashed.Name, "namespace", trashed.Namespace)
-			if err := trInteractor.Delete(ctx, trashed.Name, trashed.Namespace); err != nil {
-				if apierrors.IsNotFound(err) {
-					logger.Info("TrashedResource already deleted", "name", trashed.Name, "namespace", trashed.Namespace)
-					continue
-				}
-				logger.Error(err, "Error deleting TrashedResource")
-				return err
-			}
-		}
-	}
-	return nil
-}
 
 func CreateOrUpdatedManifest(c client.Client, kubernetesObject client.Object, resourceReconciler *TRReconciler, actionType string) bool {
 	ctx := context.Background()
