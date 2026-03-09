@@ -29,19 +29,19 @@ echo export PATH=$PATH:$(pwd)/bin >> ~/.bashrc
 echo export PATH=$PATH:$(pwd)/bin >> ~/.zshrc
 ```
 
-### Use plugin with kubectl
+### Use as plugin with kubectl
 ```sh
-# For trashed-resource named trashed-deleted-deployment-nginx-deployment
-kubectl trashedresources prune --name trashed-deleted-deployment-nginx-deployment
+# For trashed-resource named trashed-deleted-deployment-nginx-deployment-20260301-230159
+kubectl trashedresources prune --name trashed-deleted-deployment-nginx-deployment-20260301-230159
 
-# For trashed-resource named trashed-deleted-deployment-nginx-deployment  with age older than 12 minutes
-kubectl trashedresources prune --name trashed-deleted-deployment-nginx-deployment --older-than 12m
+# For trashed-resource named trashed-deleted-deployment-nginx-deployment-20260301-230159  and age older than 12 minutes
+kubectl trashedresources prune --name trashed-deleted-deployment-nginx-deployment-20260301-230159 --older-than 12m
 
-# For trashed-resource named trashed-deleted-deployment-nginx-deployment  with age older than 1 hour
-kubectl trashedresources prune --name trashed-deleted-deployment-nginx-deployment --older-than 1h
+# For trashed-resource named trashed-deleted-deployment-nginx-deployment-20260301-230159  and age older than 1 hour
+kubectl trashedresources prune --name trashed-deleted-deployment-nginx-deployment-20260301-230159 --older-than 1h
 
-# For trashed-resource named trashed-deleted-deployment-nginx-deployment  with age older than 1 day
-kubectl trashedresources prune --name trashed-deleted-deployment-nginx-deployment --older-than 1d
+# For trashed-resource named trashed-deleted-deployment-nginx-deployment-20260301-230159  and age older than 1 day
+kubectl trashedresources prune --name trashed-deleted-deployment-nginx-deployment-20260301-230159 --older-than 1d
 
 # For all trashed-resources in the cluster with age older than 1 day
 kubectl trashedresources prune --older-than 1d
@@ -50,12 +50,14 @@ kubectl trashedresources prune --older-than 1d
 ## Getting Started
 
 ### Prerequisites
-- go version v1.25.0+
-- docker version 17.03+.
-- kubectl version v1.11.3+.
+
+- go version v1.26.1
+- docker version 29.3.0+.
+- kubectl version v1.32.0+.
 - Access to a Kubernetes v1.11.3+ cluster.
 
 ### To Deploy on the cluster
+
 **Build and push your image to the location specified by `IMG`:**
 
 ```sh
@@ -128,11 +130,11 @@ dependencies.
 
 2. Using the installer
 
-Users can just run 'kubectl apply -f <URL for YAML BUNDLE>' to install
+Users can just run 'kubectl apply -f <URL for YAML BUNDLE>' to install 
 the project, i.e.:
 
 ```sh
-kubectl apply -f https://raw.githubusercontent.com/<org>/trashed-resources/<tag or branch>/dist/install.yaml
+kubectl apply -f https://raw.githubusercontent.com/oliveiraxavier/trashed-resources-k8s-crd/main/dist/install.yaml
 ```
 
 ### By providing a Helm Chart
