@@ -52,6 +52,7 @@ func CreateOrUpdatedManifest(c client.Client, kubernetesObject client.Object, re
 			GenerateName: setName,
 			Name:         setName,
 			Namespace:    kubernetesObject.GetNamespace(),
+			Annotations:  map[string]string{"OriginalName": kubernetesObject.GetName()},
 		},
 		Spec: moxv1alpha1.TrashedResourceSpec{
 			Data:      string(objectYAML),

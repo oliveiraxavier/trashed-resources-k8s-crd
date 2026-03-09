@@ -8,9 +8,13 @@ metadata:
 spec:
   group: mox.app.br
   names:
+    categories:
+    - mox-app-br
     kind: TrashedResource
     listKind: TrashedResourceList
     plural: trashedresources
+    shortNames:
+    - tr
     singular: trashedresource
   scope: Namespaced
   versions:
