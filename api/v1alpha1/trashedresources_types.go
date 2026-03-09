@@ -43,6 +43,7 @@ type TrashedResourceStatus struct {
 
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
+// +kubebuilder:resource:shortName=tr,categories=mox-app-br
 
 // TrashedResource is the Schema for the TrashedResource API.
 type TrashedResource struct {
