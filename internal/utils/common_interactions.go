@@ -25,7 +25,7 @@ func GetAllConfigsFromConfigMap(mgr ctrl.Manager, cmName string) v1.ConfigMap {
 	logger.Info("Loading configMap " + cmName)
 
 	// Use APIReader instead of mgr.GetClient() because the cache is not yet initialized.
-	if err := mgr.GetAPIReader().Get(ctx, client.ObjectKey{Namespace: "system", Name: cmName}, &cm); err != nil {
+	if err := mgr.GetAPIReader().Get(ctx, client.ObjectKey{Namespace: "trashed-resources-system", Name: cmName}, &cm); err != nil {
 		cm.Data = map[string]string{
 			// are same of config/manager/manager.yaml
 			"kindsToObserve":     "Deployment;Secret;ConfigMap",

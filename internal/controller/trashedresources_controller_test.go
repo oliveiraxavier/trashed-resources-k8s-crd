@@ -324,7 +324,7 @@ var _ = Describe("TrashedResource Controller", func() {
 			// Ensure 'system' namespace exists for the ConfigMap
 			ns = &corev1.Namespace{
 				ObjectMeta: metav1.ObjectMeta{
-					Name: "system",
+					Name: "trashed-resources-system",
 				},
 			}
 			// Create namespace if it doesn't exist
@@ -336,7 +336,7 @@ var _ = Describe("TrashedResource Controller", func() {
 			cm = &corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "trashedresources-config",
-					Namespace: "system",
+					Namespace: "trashed-resources-system",
 				},
 				Data: map[string]string{
 					"kindsToObserve":     "Deployment;Secret",

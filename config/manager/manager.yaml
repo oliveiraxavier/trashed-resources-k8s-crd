@@ -15,6 +15,7 @@ metadata:
   # If you change this name, change in controller
   # cmName = "trashed-resources-config"
   name: config
+  # If you change this namespace, change in code too
   namespace: trashed-resources-system
 data:
   namespacesToIgnore: istio-system; kube-node-lease; kube-public; kube-system
