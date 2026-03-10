@@ -6,6 +6,8 @@ namespace: trashed-resources-system
 # "wordpress" becomes "alices-wordpress".
 # Note that it should also match with the prefix (text before '-') of the namespace
 # field above.
+# If you change this name, change in controller
+# cmName = "trashed-resources-config"
 namePrefix: trashed-resources-
 
 # Labels to add to all resources and selectors.

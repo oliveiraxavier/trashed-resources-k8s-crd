@@ -12,7 +12,7 @@ metadata:
 spec:
   podSelector:
     matchLabels:
-      control-plane: controller-manager
+      control-plane: trashed-resources-controller-manager
       app.kubernetes.io/name: trashed-resources
   policyTypes:
     - Ingress

@@ -54,8 +54,8 @@ trashedresource name is composed of the "trashed-action + resource type + resour
 1 - With curl
 
 ```sh
-curl https://raw.githubusercontent.com/oliveiraxavier/trashed-resources-k8s-crd/1.0.0/kubectl-trashedresources \
-    -o ~/.local/bin/kubectl-trashedresources
+curl https://raw.githubusercontent.com/oliveiraxavier/trashed-resources-k8s-crd/1.0.0/bin/kubectl-trashedresources \
+  -O --output-dir  ~/.local/bin
 ```
 
 - Add it to your path if necessary
