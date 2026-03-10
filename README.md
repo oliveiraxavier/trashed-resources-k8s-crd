@@ -15,7 +15,7 @@ acts as a recycle bin, ensuring that deleted or modified items are temporarily
 
 3 - Cli plugin to interact with the trashedresources (restore or prune) via kubectl.
 
-## Installation of CRD
+## CRD installation
 
 ```sh
 kubectl apply -f https://raw.githubusercontent.com/oliveiraxavier/trashed-resources-k8s-crd/1.0.0/dist/install.yaml
@@ -40,11 +40,12 @@ data:
   minutesToKeep: "10"
 ```
 
-You must configure it according to your scenario. Restart controller pod after 
+You must configure it according to your scenario. Restart controller pod after
 change this configmap.
 
 ### How trashedresources is generated?
-Eg. After delete a deployment, a new trashed resource is generated. The generated 
+
+Eg. After delete a deployment, a new trashed resource is generated. The generated
 trashedresource name is composed of the "trashed-action + resource type + resource name + date + time"
 (eg. trashed-deleted-deployment-nginx-20260301-230159 or trashed-updated-deployment-nginx-20260301-230159)
 
@@ -67,7 +68,7 @@ echo -e '\nexport PATH=~/.local/bin:$PATH' >> ~/.bashrc
 
 ```sh
 make createcmdbin
-export PATH=$PATH:$(pwd)/bin 
+export PATH=$PATH:$(pwd)/bin
 # Or set in your ~/.bashrc (Linux)
 echo export PATH=$PATH:$(pwd)/bin >> ~/.bashrc
 # Or set in your ~/.bashrc (Mac)
@@ -183,13 +184,13 @@ dependencies.
 
 ### By providing a Helm Chart
 
-1. Build the chart using the optional helm plugin
+1 - Build the chart using the optional helm plugin
 
 ```sh
 kubebuilder edit --plugins=helm/v1-alpha
 ```
 
-2. See that a chart was generated under 'dist/chart', and users
+2 - See that a chart was generated under 'dist/chart', and users
 can obtain this solution from there.
 
 **NOTE:** If you change the project, you need to update the Helm Chart
@@ -200,6 +201,7 @@ previously added to 'dist/chart/values.yaml' or 'dist/chart/manager/manager.yaml
 is manually re-applied afterwards.
 
 ## Contributing
+
 // TODO(user): Add detailed information on how you would like others to contribute to this project
 
 **NOTE:** Run `make help` for more information on all potential `make` targets
@@ -212,13 +214,10 @@ Copyright 2026.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
+You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
-
