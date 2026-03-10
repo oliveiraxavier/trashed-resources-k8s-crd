@@ -18,7 +18,7 @@ acts as a recycle bin, ensuring that deleted or modified items are temporarily
 ## CRD installation
 
 ```sh
-kubectl apply -f https://raw.githubusercontent.com/oliveiraxavier/trashed-resources-k8s-crd/1.0.0/dist/install.yaml
+kubectl apply -f https://raw.githubusercontent.com/oliveiraxavier/trashed-resources-k8s-crd/1.0.1/dist/install.yaml
 ```
 
 ## Edit default Configmap configuration
@@ -54,7 +54,7 @@ trashedresource name is composed of the "trashed-action + resource type + resour
 1 - With curl
 
 ```sh
-curl https://raw.githubusercontent.com/oliveiraxavier/trashed-resources-k8s-crd/1.0.0/bin/kubectl-trashedresources \
+curl https://raw.githubusercontent.com/oliveiraxavier/trashed-resources-k8s-crd/1.0.1/bin/kubectl-trashedresources \
   -O --output-dir  ~/.local/bin
 ```
 
