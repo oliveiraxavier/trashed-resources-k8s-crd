@@ -15,26 +15,38 @@ import (
 
 var (
 	ctx    = context.Background()
-	logger = log.Log
+	logger = log.Log.WithName("common-interactions")
+)
+
+const (
+	// ControllerNamespace is the namespace where the controller is running and looks for its config.
+	ControllerNamespace = "trashed-resources-system"
 )
 
 type TRReconciler TrashedResourceReconciler
 
-func GetAllConfigsFromConfigMap(mgr ctrl.Manager, cmName string) v1.ConfigMap {
+// getDefaultConfigData returns the default configuration values.
+func getDefaultConfigData() map[string]string {
+	return map[string]string{
+		// are same of config/manager/manager.yaml
+		"kindsToObserve":     "Deployment;Secret;ConfigMap",
+		"actionsToObserve":   "delete",
+		"namespacesToIgnore": "istio-system; kube-node-lease; kube-public; kube-system",
+		"minutesToKeep":      "60",
+		"hoursToKeep":        "0",
+		"daysToKeep":         "0",
+	}
+}
+
+var GetAllConfigsFromConfigMap = func(mgr ctrl.Manager, cmName string) v1.ConfigMap {
 	var cm v1.ConfigMap
-	logger.Info("Loading configMap " + cmName)
+	logger.Info("Loading configMap", "name", cmName, "namespace", ControllerNamespace)
 
 	// Use APIReader instead of mgr.GetClient() because the cache is not yet initialized.
-	if err := mgr.GetAPIReader().Get(ctx, client.ObjectKey{Namespace: "trashed-resources-system", Name: cmName}, &cm); err != nil {
-		cm.Data = map[string]string{
-			// are same of config/manager/manager.yaml
-			"kindsToObserve":     "Deployment;Secret;ConfigMap",
-			"actionsToObserve":   "delete",
-			"namespacesToIgnore": "istio-system; kube-node-lease; kube-public; kube-system",
-			"minutesToKeep":      "60",
-			"hoursToKeep":        "0",
-			"daysToKeep":         "0",
-		}
+	err := mgr.GetAPIReader().Get(ctx, client.ObjectKey{Namespace: ControllerNamespace, Name: cmName}, &cm)
+	if err != nil {
+		logger.Error(err, "Failed to get ConfigMap, using default values", "name", cmName)
+		cm.Data = getDefaultConfigData()
 	}
 	return cm
 }
