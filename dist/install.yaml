@@ -375,7 +375,7 @@ spec:
         envFrom:
         - configMapRef:
             name: trashed-resources-config
-        image: oxmarcos/trashed-resources-controller:1.0.0
+        image: oxmarcos/trashed-resources-controller:1.0.1
         imagePullPolicy: IfNotPresent
         livenessProbe:
           httpGet:
