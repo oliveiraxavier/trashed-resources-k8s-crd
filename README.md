@@ -21,6 +21,27 @@ acts as a recycle bin, ensuring that deleted or modified items are temporarily
 kubectl apply -f https://raw.githubusercontent.com/oliveiraxavier/trashed-resources-k8s-crd/1.0.0/dist/install.yaml
 ```
 
+## Edit default Configmap configuration
+
+By default, the configmap is:
+
+```yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: trashed-resources-trashedresources-config
+  namespace: trashed-resources-system
+data:
+  actionsToObserve: delete #or update
+  kindsToObserve: Deployment; Secret; ConfigMap
+  namespacesToIgnore: istio-system; kube-node-lease; kube-public; kube-system
+  daysToKeep: "0"
+  hoursToKeep: "0"
+  minutesToKeep: "10"
+```
+
+You must configure it according to your scenario.
+
 ### Install plugin
 
 1 - With curl
