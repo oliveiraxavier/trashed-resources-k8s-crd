@@ -196,15 +196,26 @@ func restoreResource(c client.Client, name, namespace string) error {
 	err = c.Create(ctx, restoredObject)
 	if err != nil {
 		if errors.IsAlreadyExists(err) {
-			return fmt.Errorf("resource %s %s/%s already exists", restoredObject.GetKind(), restoredObject.GetNamespace(), restoredObject.GetName())
+			return fmt.Errorf("resource %s %s/%s already exists",
+				restoredObject.GetKind(),
+				restoredObject.GetNamespace(),
+				restoredObject.GetName(),
+			)
 		}
 		return fmt.Errorf("failed to create restored resource: %v", err)
 	}
 
-	fmt.Printf("Success! Resource %s %s/%s restored.\n", restoredObject.GetKind(), restoredObject.GetNamespace(), restoredObject.GetName())
+	fmt.Printf("Success! Resource %s %s/%s restored.\n",
+		restoredObject.GetKind(),
+		restoredObject.GetNamespace(),
+		restoredObject.GetName())
 	err = c.Delete(ctx, trashed, client.PropagationPolicy(metav1.DeletePropagationBackground))
 	if err != nil {
-		fmt.Printf("Warning: failed to delete TrashedResource %s/%s: %v. You should manually delete it\n", namespace, name, err)
+		fmt.Printf("Warning: failed to delete TrashedResource %s/%s: %v. You should manually delete it\n",
+			namespace,
+			name,
+			err,
+		)
 	}
 	return nil
 }

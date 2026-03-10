@@ -319,33 +319,28 @@ var _ = Describe("TrashedResource Controller", func() {
 			cm         *corev1.ConfigMap
 			ns         *corev1.Namespace
 		)
-
 		BeforeEach(func() {
-			// Ensure 'system' namespace exists for the ConfigMap
 			ns = &corev1.Namespace{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "system",
-				},
+				ObjectMeta: metav1.ObjectMeta{Name: utils.ControllerNamespace},
 			}
-			// Create namespace if it doesn't exist
-			if err := k8sClient.Create(ctx, ns); err != nil {
-				Expect(errors.IsAlreadyExists(err)).To(BeTrue())
-			}
-
 			// Create the ConfigMap
 			cm = &corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "trashedresources-config",
-					Namespace: "system",
+					Namespace: utils.ControllerNamespace,
 				},
 				Data: map[string]string{
-					"kindsToObserve":     "Deployment;Secret",
+					"kindsToObserve":     "Deployment; Secret",
 					"actionsToObserve":   "delete",
 					"namespacesToIgnore": "kube-system",
 					"minutesToKeep":      "30",
 					"hoursToKeep":        "1",
 					"daysToKeep":         "0",
 				},
+			}
+			// Create namespace if it doesn't exist
+			if err := k8sClient.Create(ctx, ns); err != nil {
+				Expect(errors.IsAlreadyExists(err)).To(BeTrue())
 			}
 
 			_ = k8sClient.Delete(ctx, cm)
@@ -370,6 +365,25 @@ var _ = Describe("TrashedResource Controller", func() {
 		})
 
 		It("should successfully setup with manager and load configuration", func() {
+			// Set up the mock function to return a predefined ConfigMap.
+			originalUtilsGetAllConfigsFromConfigMap := utils.GetAllConfigsFromConfigMap
+
+			utils.GetAllConfigsFromConfigMap = func(mgr ctrl.Manager, cmName string) corev1.ConfigMap {
+				return corev1.ConfigMap{
+					ObjectMeta: metav1.ObjectMeta{Name: "mock-cm", Namespace: utils.ControllerNamespace},
+					Data: map[string]string{
+						"kindsToObserve":     "Deployment; Secret",
+						"actionsToObserve":   "delete",
+						"namespacesToIgnore": "kube-system",
+						"minutesToKeep":      "30",
+						"hoursToKeep":        "1",
+						"daysToKeep":         "0",
+					},
+				}
+			}
+			DeferCleanup(func() {
+				utils.GetAllConfigsFromConfigMap = originalUtilsGetAllConfigsFromConfigMap
+			})
 			_ = reconciler.SetupWithManager(mgr)
 			// Verify configuration loaded into reconciler
 			Expect(reconciler.KindsToWatch).To(ConsistOf("Deployment", "Secret"))
@@ -380,7 +394,6 @@ var _ = Describe("TrashedResource Controller", func() {
 		})
 
 		It("should use default configuration when ConfigMap is missing", func() {
-			Expect(k8sClient.Delete(ctx, cm)).To(Succeed())
 			_ = reconciler.SetupWithManager(mgr)
 
 			// When configmap not set kindsToObserve then use as defined in utils.GetAllConfigsFromConfigMap
@@ -480,4 +493,5 @@ var _ = Describe("TrashedResource Controller", func() {
 			Expect(trList.Items).To(HaveLen(1))
 		})
 	})
+
 })

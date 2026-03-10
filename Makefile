@@ -1,5 +1,5 @@
 # Image URL to use all building/pushing image targets
-APP_VERSION ?=1.0.0
+APP_VERSION ?=1.0.1
 IMG ?= oxmarcos/trashed-resources-controller:${APP_VERSION}
 
 # Get the currently used golang install path (in GOPATH/bin, unless GOBIN is set)

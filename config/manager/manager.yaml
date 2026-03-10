@@ -2,7 +2,7 @@ apiVersion: v1
 kind: Namespace
 metadata:
   labels:
-    control-plane: controller-manager
+    control-plane: trashed-resources-controller-manager
     app.kubernetes.io/name: trashed-resources
     app.kubernetes.io/managed-by: kustomize
   name: system
@@ -10,7 +10,12 @@ metadata:
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: trashedresources-config
+  # After run make build-installer this name will be trashed-resources-config
+  # because namePrefix: trashed-resources
+  # If you change this name, change in controller
+  # cmName = "trashed-resources-config"
+  name: config
+  # If you change this namespace, change in code too
   namespace: trashed-resources-system
 data:
   namespacesToIgnore: istio-system; kube-node-lease; kube-public; kube-system
@@ -26,13 +31,13 @@ metadata:
   name: controller-manager
   namespace: trashed-resources-system
   labels:
-    control-plane: controller-manager
+    control-plane: trashed-resources-controller-manager
     app.kubernetes.io/name: trashed-resources
     app.kubernetes.io/managed-by: kustomize
 spec:
   selector:
     matchLabels:
-      control-plane: controller-manager
+      control-plane: trashed-resources-controller-manager
       app.kubernetes.io/name: trashed-resources
   replicas: 1
   template:
@@ -40,7 +45,7 @@ spec:
       annotations:
         kubectl.kubernetes.io/default-container: manager
       labels:
-        control-plane: controller-manager
+        control-plane: trashed-resources-controller-manager
         app.kubernetes.io/name: trashed-resources
     spec:
       # TODO(user): Uncomment the following code to configure the nodeAffinity expression
@@ -76,8 +81,14 @@ spec:
         args:
           - --leader-elect
           - --health-probe-bind-address=:8081
+        envFrom:
+        - configMapRef:
+            name: trashed-resources-config
         image: controller:latest
+        imagePullPolicy: IfNotPresent
         name: manager
+        stdin: true
+        tty: true
         ports: []
         securityContext:
           allowPrivilegeEscalation: false

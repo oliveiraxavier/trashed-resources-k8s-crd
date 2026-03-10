@@ -54,8 +54,8 @@ trashedresource name is composed of the "trashed-action + resource type + resour
 1 - With curl
 
 ```sh
-curl https://raw.githubusercontent.com/oliveiraxavier/trashed-resources-k8s-crd/1.0.0/kubectl-trashedresources \
-    -o ~/.local/bin/kubectl-trashedresources
+curl https://raw.githubusercontent.com/oliveiraxavier/trashed-resources-k8s-crd/1.0.0/bin/kubectl-trashedresources \
+  -O --output-dir  ~/.local/bin
 ```
 
 - Add it to your path if necessary
@@ -79,19 +79,19 @@ echo export PATH=$PATH:$(pwd)/bin >> ~/.zshrc
 
 ```sh
 # For trashed-resource named trashed-deleted-deployment-nginx-deployment-20260301-230159
-kubectl trashedresources prune --name trashed-deleted-deployment-nginx-deployment-20260301-230159
+kubectl trashedresources prune --name trashed-deleted-deployment-nginx-deployment-20260301-230159 --namespace default
 
 # For trashed-resource named trashed-deleted-deployment-nginx-deployment-20260301-230159  and age older than 12 minutes
-kubectl trashedresources prune --name trashed-deleted-deployment-nginx-deployment-20260301-230159 --older-than 12m
+kubectl trashedresources prune --name trashed-deleted-deployment-nginx-deployment-20260301-230159 --older-than 12m --namespace default
 
 # For trashed-resource named trashed-deleted-deployment-nginx-deployment-20260301-230159  and age older than 1 hour
-kubectl trashedresources prune --name trashed-deleted-deployment-nginx-deployment-20260301-230159 --older-than 1h
+kubectl trashedresources prune --name trashed-deleted-deployment-nginx-deployment-20260301-230159 --older-than 1h --namespace default
 
 # For trashed-resource named trashed-deleted-deployment-nginx-deployment-20260301-230159  and age older than 1 day
-kubectl trashedresources prune --name trashed-deleted-deployment-nginx-deployment-20260301-230159 --older-than 1d
+kubectl trashedresources prune --name trashed-deleted-deployment-nginx-deployment-20260301-230159 --older-than 1d --namespace default
 
 # For all trashed-resources in the cluster with age older than 1 day
-kubectl trashedresources prune --older-than 1d
+kubectl trashedresources prune --older-than 1d --namespace default
 ```
 
 ## Getting Started to contribute or test/install from source

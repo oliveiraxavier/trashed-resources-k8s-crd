@@ -38,7 +38,7 @@ import (
 
 var (
 	logger = log.Log
-	cmName = "trashedresources-config"
+	cmName = "trashed-resources-config"
 )
 
 // TrashedResourceReconciler wraps the common reconciler to allow defining methods in this package.
