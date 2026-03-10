@@ -40,7 +40,13 @@ data:
   minutesToKeep: "10"
 ```
 
-You must configure it according to your scenario.
+You must configure it according to your scenario. Restart controller pod after 
+change this configmap.
+
+### How trashedresources is generated?
+Eg. After delete a deployment, a new trashed resource is generated. The generated 
+trashedresource name is composed of the "trashed-action + resource type + resource name + date + time"
+(eg. trashed-deleted-deployment-nginx-20260301-230159 or trashed-updated-deployment-nginx-20260301-230159)
 
 ### Install plugin
 
@@ -68,7 +74,7 @@ echo export PATH=$PATH:$(pwd)/bin >> ~/.bashrc
 echo export PATH=$PATH:$(pwd)/bin >> ~/.zshrc
 ```
 
-## Interact via cli (as plugin) with kubectl
+### Interact via cli (as plugin) with kubectl
 
 ```sh
 # For trashed-resource named trashed-deleted-deployment-nginx-deployment-20260301-230159
