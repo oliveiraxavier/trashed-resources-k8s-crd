@@ -7,11 +7,24 @@ metadata:
     app.kubernetes.io/managed-by: kustomize
   name: system
 ---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: trashedresources-config
+  namespace: trashed-resources-system
+data:
+  namespacesToIgnore: istio-system; kube-node-lease; kube-public; kube-system
+  actionsToObserve: delete #or delete; update
+  kindsToObserve: Deployment; Secret; ConfigMap
+  minutesToKeep: "10" #optional, default is 60. Value is in minutes. It defines how long the TrashedResource will be kept before being deleted.
+  hoursToKeep: "0" #optional, default is 0. Value is in hours. It defines how long the TrashedResource will be kept before being deleted.
+  daysToKeep: "0" #optional, default is 0. Value is in day (or days). It defines how long the TrashedResource will be kept before being deleted.
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: controller-manager
-  namespace: system
+  namespace: trashed-resources-system
   labels:
     control-plane: controller-manager
     app.kubernetes.io/name: trashed-resources
@@ -96,17 +109,3 @@ spec:
       volumes: []
       serviceAccountName: controller-manager
       terminationGracePeriodSeconds: 10
----
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: trashedresources-config
-  namespace: system
-data:
-  namespacesToIgnore: istio-system; kube-node-lease; kube-public; kube-system
-  actionsToObserve: delete; update
-  kindsToObserve: Deployment; Secret; ConfigMap
-  minutesToKeep: "1" #optional, default is 60. Value is in minutes. It defines how long the TrashedResource will be kept before being deleted.
-  hoursToKeep: "0" #optional, default is 0. Value is in hours. It defines how long the TrashedResource will be kept before being deleted.
-  daysToKeep: "0" #optional, default is 0. Value is in day (or days). It defines how long the TrashedResource will be kept before being deleted.
-

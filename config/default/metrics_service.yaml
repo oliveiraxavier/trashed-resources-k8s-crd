@@ -6,7 +6,7 @@ metadata:
     app.kubernetes.io/name: trashed-resources
     app.kubernetes.io/managed-by: kustomize
   name: controller-manager-metrics-service
-  namespace: system
+  namespace: trashed-resources-system
 spec:
   ports:
   - name: https

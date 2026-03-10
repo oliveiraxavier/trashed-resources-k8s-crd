@@ -121,11 +121,17 @@ metadata:
   name: trashed-resources-manager-role
 rules:
 - apiGroups:
-  - ""
+  - '*'
   resources:
-  - configmaps
+  - '*'
   verbs:
   - get
+  - list
+  - watch
+  - create
+  - update
+  - patch
+  - delete
   - list
   - watch
 - apiGroups:
@@ -302,11 +308,11 @@ subjects:
 ---
 apiVersion: v1
 data:
-  actionsToObserve: delete; update
+  actionsToObserve: delete
   daysToKeep: "0"
   hoursToKeep: "0"
   kindsToObserve: Deployment; Secret; ConfigMap
-  minutesToKeep: "1"
+  minutesToKeep: "10"
   namespacesToIgnore: istio-system; kube-node-lease; kube-public; kube-system
 kind: ConfigMap
 metadata:

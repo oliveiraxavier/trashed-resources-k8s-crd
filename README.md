@@ -1,25 +1,33 @@
 # Trashed resources
 
 ## Description
+
 This project introduces a custom CRD designed to enhance cluster safety by tracking objects that are updated or removed from your Kubernetes Cluster. It acts as a recycle bin, ensuring that deleted or modified items are temporarily stored and can be audited or recovered. [WIP]
 
 ## Features
+
 1 - Tracks deletions and updates across the cluster.
 
 2 - Provides a sort of "Recycle Bin" for Kubernetes resources.
 
-3 - Cli to interact with the CRD
+3 - Cli plugin to interact with the trashedresources (restore or prune) via kubectl.
 
-## Run locally
+## Installation of CRD
 
 ```sh
-make run
+kubectl apply -f https://raw.githubusercontent.com/oliveiraxavier/trashed-resources-k8s-crd/main/dist/install.yaml
 ```
 
-
-## Interact via cli
-
 ### Install plugin
+
+#### With curl
+
+```sh
+kubectl apply -f https://raw.githubusercontent.com/oliveiraxavier/trashed-resources-k8s-crd/main/dist/install.yaml
+```
+
+#### From source
+
 ```sh
 make createcmdbin
 export PATH=$PATH:$(pwd)/bin 
@@ -29,7 +37,8 @@ echo export PATH=$PATH:$(pwd)/bin >> ~/.bashrc
 echo export PATH=$PATH:$(pwd)/bin >> ~/.zshrc
 ```
 
-### Use as plugin with kubectl
+## Interact via cli (as plugin) with kubectl
+
 ```sh
 # For trashed-resource named trashed-deleted-deployment-nginx-deployment-20260301-230159
 kubectl trashedresources prune --name trashed-deleted-deployment-nginx-deployment-20260301-230159
@@ -47,7 +56,7 @@ kubectl trashedresources prune --name trashed-deleted-deployment-nginx-deploymen
 kubectl trashedresources prune --older-than 1d
 ```
 
-## Getting Started
+## Getting Started to contribute or test/install from source
 
 ### Prerequisites
 
@@ -56,12 +65,18 @@ kubectl trashedresources prune --older-than 1d
 - kubectl version v1.32.0+.
 - Access to a Kubernetes v1.11.3+ cluster.
 
+## Run locally
+
+```sh
+make run
+```
+
 ### To Deploy on the cluster
 
 **Build and push your image to the location specified by `IMG`:**
 
 ```sh
-make docker-build docker-push IMG=<some-registry>/trashed-resources:tag
+make docker-build docker-push IMG=<some-registry>/trashed-resources-controller:tag
 ```
 
 **NOTE:** This image ought to be published in the personal registry you specified.
@@ -77,7 +92,7 @@ make install
 **Deploy the Manager to the cluster with the image specified by `IMG`:**
 
 ```sh
-make deploy IMG=<some-registry>/trashed-resources:tag
+make deploy IMG=<some-registry>/trashed-resources-controller:tag
 ```
 
 > **NOTE**: If you encounter RBAC errors, you may need to grant yourself cluster-admin
@@ -93,6 +108,7 @@ kubectl apply -k config/samples/
 >**NOTE**: Ensure that the samples has default values to test it out.
 
 ### To Uninstall
+
 **Delete the instances (CRs) from the cluster:**
 
 ```sh
@@ -127,15 +143,6 @@ make build-installer IMG=<some-registry>/trashed-resources:tag
 file in the dist directory. This file contains all the resources built
 with Kustomize, which are necessary to install this project without its
 dependencies.
-
-2. Using the installer
-
-Users can just run 'kubectl apply -f <URL for YAML BUNDLE>' to install 
-the project, i.e.:
-
-```sh
-kubectl apply -f https://raw.githubusercontent.com/oliveiraxavier/trashed-resources-k8s-crd/main/dist/install.yaml
-```
 
 ### By providing a Helm Chart
 
