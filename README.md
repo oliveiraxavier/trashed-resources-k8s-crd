@@ -26,7 +26,7 @@ kubectl apply -f https://raw.githubusercontent.com/oliveiraxavier/trashed-resour
 1 - With curl
 
 ```sh
-curl https://raw.githubusercontent.com/oliveiraxavier/trashed-resources-k8s-crd/main/1.0.0/kubectl-trashedresources \
+curl https://raw.githubusercontent.com/oliveiraxavier/trashed-resources-k8s-crd/1.0.0/kubectl-trashedresources \
     -o ~/.local/bin/kubectl-trashedresources
 ```
 
