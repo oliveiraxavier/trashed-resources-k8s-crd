@@ -2,7 +2,10 @@
 
 ## Description
 
-This project introduces a custom CRD designed to enhance cluster safety by tracking objects that are updated or removed from your Kubernetes Cluster. It acts as a recycle bin, ensuring that deleted or modified items are temporarily stored and can be audited or recovered. [WIP]
+This project introduces a custom CRD designed to enhance cluster safety by
+tracking objects that are updated or removed from your Kubernetes Cluster. It
+acts as a recycle bin, ensuring that deleted or modified items are temporarily
+(based on configuration) stored to be udited or recovered. [WIP]
 
 ## Features
 
