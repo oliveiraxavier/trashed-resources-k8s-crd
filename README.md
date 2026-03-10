@@ -15,18 +15,25 @@ This project introduces a custom CRD designed to enhance cluster safety by track
 ## Installation of CRD
 
 ```sh
-kubectl apply -f https://raw.githubusercontent.com/oliveiraxavier/trashed-resources-k8s-crd/main/dist/install.yaml
+kubectl apply -f https://raw.githubusercontent.com/oliveiraxavier/trashed-resources-k8s-crd/1.0.0/dist/install.yaml
 ```
 
 ### Install plugin
 
-#### With curl
+1 - With curl
 
 ```sh
-kubectl apply -f https://raw.githubusercontent.com/oliveiraxavier/trashed-resources-k8s-crd/main/dist/install.yaml
+curl https://raw.githubusercontent.com/oliveiraxavier/trashed-resources-k8s-crd/main/1.0.0/kubectl-trashedresources \
+    -o ~/.local/bin/kubectl-trashedresources
 ```
 
-#### From source
+- Add it to your path if necessary
+
+```sh
+echo -e '\nexport PATH=~/.local/bin:$PATH' >> ~/.bashrc
+```
+
+2 - From source
 
 ```sh
 make createcmdbin
