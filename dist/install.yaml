@@ -1,0 +1,405 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: trashed-resources
+    control-plane: controller-manager
+  name: trashed-resources-system
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.17.2
+  name: trashedresources.mox.app.br
+spec:
+  group: mox.app.br
+  names:
+    kind: TrashedResource
+    listKind: TrashedResourceList
+    plural: trashedresources
+    singular: trashedresource
+  scope: Namespaced
+  versions:
+  - name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: TrashedResource is the Schema for the TrashedResource API.
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: TrashedResourceSpec defines the desired state of TrashedResource.
+            properties:
+              data:
+                description: Data is the YAML content of the deleted resource
+                type: string
+              keepUntil:
+                type: string
+            required:
+            - data
+            - keepUntil
+            type: object
+          status:
+            description: TrashedResourceStatus defines the observed state of TrashedResource.
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: trashed-resources
+  name: trashed-resources-controller-manager
+  namespace: trashed-resources-system
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: trashed-resources
+  name: trashed-resources-leader-election-role
+  namespace: trashed-resources-system
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - configmaps
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - update
+  - patch
+  - delete
+- apiGroups:
+  - coordination.k8s.io
+  resources:
+  - leases
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - update
+  - patch
+  - delete
+- apiGroups:
+  - ""
+  resources:
+  - events
+  verbs:
+  - create
+  - patch
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: trashed-resources-manager-role
+rules:
+- apiGroups:
+  - '*'
+  resources:
+  - '*'
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - update
+  - patch
+  - delete
+  - list
+  - watch
+- apiGroups:
+  - mox.app.br
+  resources:
+  - trashedresources
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - mox.app.br
+  resources:
+  - trashedresources/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - mox.app.br
+  resources:
+  - trashedresources/status
+  verbs:
+  - get
+  - patch
+  - update
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: trashed-resources-metrics-auth-role
+rules:
+- apiGroups:
+  - authentication.k8s.io
+  resources:
+  - tokenreviews
+  verbs:
+  - create
+- apiGroups:
+  - authorization.k8s.io
+  resources:
+  - subjectaccessreviews
+  verbs:
+  - create
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: trashed-resources-metrics-reader
+rules:
+- nonResourceURLs:
+  - /metrics
+  verbs:
+  - get
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: trashed-resources
+  name: trashed-resources-trashedresources-admin-role
+rules:
+- apiGroups:
+  - mox.app.br
+  resources:
+  - trashedresources
+  verbs:
+  - '*'
+- apiGroups:
+  - mox.app.br
+  resources:
+  - trashedresources/status
+  verbs:
+  - get
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: trashed-resources
+  name: trashed-resources-trashedresources-editor-role
+rules:
+- apiGroups:
+  - mox.app.br
+  resources:
+  - trashedresources
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - mox.app.br
+  resources:
+  - trashedresources/status
+  verbs:
+  - get
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: trashed-resources
+  name: trashed-resources-trashedresources-viewer-role
+rules:
+- apiGroups:
+  - mox.app.br
+  resources:
+  - trashedresources
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - mox.app.br
+  resources:
+  - trashedresources/status
+  verbs:
+  - get
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: trashed-resources
+  name: trashed-resources-leader-election-rolebinding
+  namespace: trashed-resources-system
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: trashed-resources-leader-election-role
+subjects:
+- kind: ServiceAccount
+  name: trashed-resources-controller-manager
+  namespace: trashed-resources-system
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: trashed-resources
+  name: trashed-resources-manager-rolebinding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: trashed-resources-manager-role
+subjects:
+- kind: ServiceAccount
+  name: trashed-resources-controller-manager
+  namespace: trashed-resources-system
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: trashed-resources-metrics-auth-rolebinding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: trashed-resources-metrics-auth-role
+subjects:
+- kind: ServiceAccount
+  name: trashed-resources-controller-manager
+  namespace: trashed-resources-system
+---
+apiVersion: v1
+data:
+  actionsToObserve: delete
+  daysToKeep: "0"
+  hoursToKeep: "0"
+  kindsToObserve: Deployment; Secret; ConfigMap
+  minutesToKeep: "10"
+  namespacesToIgnore: istio-system; kube-node-lease; kube-public; kube-system
+kind: ConfigMap
+metadata:
+  name: trashed-resources-trashedresources-config
+  namespace: trashed-resources-system
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: trashed-resources
+    control-plane: controller-manager
+  name: trashed-resources-controller-manager-metrics-service
+  namespace: trashed-resources-system
+spec:
+  ports:
+  - name: https
+    port: 8443
+    protocol: TCP
+    targetPort: 8443
+  selector:
+    app.kubernetes.io/name: trashed-resources
+    control-plane: controller-manager
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: trashed-resources
+    control-plane: controller-manager
+  name: trashed-resources-controller-manager
+  namespace: trashed-resources-system
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: trashed-resources
+      control-plane: controller-manager
+  template:
+    metadata:
+      annotations:
+        kubectl.kubernetes.io/default-container: manager
+      labels:
+        app.kubernetes.io/name: trashed-resources
+        control-plane: controller-manager
+    spec:
+      containers:
+      - args:
+        - --metrics-bind-address=:8443
+        - --leader-elect
+        - --health-probe-bind-address=:8081
+        command:
+        - /manager
+        image: oxmarcos/trashed-resources-controller:1.0.0
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: 8081
+          initialDelaySeconds: 15
+          periodSeconds: 20
+        name: manager
+        ports: []
+        readinessProbe:
+          httpGet:
+            path: /readyz
+            port: 8081
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        resources:
+          limits:
+            cpu: 500m
+            memory: 128Mi
+          requests:
+            cpu: 10m
+            memory: 64Mi
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+        volumeMounts: []
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      serviceAccountName: trashed-resources-controller-manager
+      terminationGracePeriodSeconds: 10
+      volumes: []
